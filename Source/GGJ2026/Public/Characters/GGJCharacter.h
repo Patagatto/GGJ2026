@@ -11,6 +11,23 @@ class UCameraComponent;
 class USpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
+class UBoxComponent;
+class UPaperFlipbookComponent;
+class UPaperFlipbook;
+
+/** 
+ * Defines the current high-level action state of the character.
+ * Mutually exclusive: You cannot be Attacking and Rolling at the same time.
+ */
+UENUM(BlueprintType)
+enum class ECharacterActionState : uint8
+{
+	None		UMETA(DisplayName = "None"),
+	Attacking	UMETA(DisplayName = "Attacking"),
+	Rolling		UMETA(DisplayName = "Rolling"),
+	Hurt		UMETA(DisplayName = "Hurt"),
+	Dead		UMETA(DisplayName = "Dead")
+};
 
 /**
  * 
@@ -31,6 +48,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
 	
+	/** Component that detects incoming damage (The Body) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HurtboxComponent;
+
+	/** Sprite component for the equipped weapon. Attached to the main Sprite via Socket. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UPaperFlipbookComponent* WeaponSprite;
+
+	/** Component that deals damage (The Weapon) - Enabled only during attacks */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HitboxComponent;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 	float AnimDirection;
 	
@@ -50,6 +79,25 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
 	float VerticalVelocity;
 
+	// --- Combat & Actions State ---
+
+	/** Current Action State (None, Attacking, Rolling, Dead, etc.) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Animation)
+	ECharacterActionState ActionState = ECharacterActionState::None;
+
+	/** Current index for attack combos (e.g. 0=First Swing, 1=Second Swing) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Animation)
+	int32 AttackComboIndex = 0;
+
+	/** Time window (in seconds) after an attack to input the next combo command before it resets */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
+	float ComboWindowTime = 0.8f;
+
+	/** Max number of attacks in the combo chain (e.g. 3 for a 3-hit combo) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
+	int32 MaxComboCount = 3;
+
+	FTimerHandle ComboTimerHandle;
 
 protected:
 	virtual void BeginPlay() override;
@@ -60,6 +108,13 @@ protected:
 	/** Handler for the Input Action (Internal C++ binding) */
 	void Move(const FInputActionValue& Value);
 
+	/** Internal function to reset combo when timer expires */
+	void ResetCombo();
+
+	/** Called when the Hitbox overlaps something */
+	UFUNCTION()
+	void OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
 public:
 	/** 
 	 * Applies movement logic relative to the camera. 
@@ -67,6 +122,22 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void ApplyMovementInput(FVector2D MovementVector);
+
+	/** Equips a weapon flipbook to a specific socket on the character sprite */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void EquipWeapon(UPaperFlipbook* WeaponFlipbook, FName SocketName = TEXT("HandSocket"));
+
+	/** Removes the current weapon */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void UnequipWeapon();
+
+	/** Call this when the player presses the Attack button. Handles Combo logic automatically. */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void PerformAttack();
+
+	/** Call this via AnimNotify (PaperZD) when the attack animation ends or reaches a transition point. */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void OnAttackFinished();
 
 public:
 	/** Default Input Mapping Context */

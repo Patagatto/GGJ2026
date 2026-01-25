@@ -9,6 +9,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PaperFlipbookComponent.h"
+#include "Components/BoxComponent.h"
+#include "PaperFlipbook.h"
+#include "Engine/DamageEvents.h"
+#include "TimerManager.h"
 
 
 AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
@@ -32,7 +36,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 75.0f); // Slight offset
 	CameraBoom->SetUsingAbsoluteRotation(true); // Don't rotate arm with character
 	
-	// FIX SLOWNESS: Changed from -20 to -45. At -20 the perspective flattened vertical movement making it seem slow.
+	// Adjusted camera angle to -45 degrees. This prevents the perspective from flattening vertical movement, ensuring consistent visual speed.
 	CameraBoom->SetRelativeRotation(FRotator(-45.0f, -90.0f, 0.0f)); 
 	
 	// Disable inheritance to prevent camera jitter during character rotation
@@ -40,6 +44,8 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	CameraBoom->bInheritYaw = false;
 	CameraBoom->bInheritRoll = false;
 	CameraBoom->bDoCollisionTest = false; // Disable collision for 2D/Top-Down to prevent zooming in
+	CameraBoom->bEnableCameraLag = true;
+	CameraBoom->CameraLagSpeed = 5.0f;
 
 	// --- Follow Camera Setup ---
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -60,9 +66,8 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// Allow movement in all directions (XY plane), removing the default 2D side-scroller constraint
 	GetCharacterMovement()->bConstrainToPlane = false;
 	
-	// FIX JITTER:
-	// Disable physical capsule rotation. Visual direction is handled solely by animation.
-	// This completely eliminates camera jitter.
+	// Disable physical capsule rotation to prevent camera jitter.
+	// Visual direction is handled solely by the Sprite/Flipbook animation.
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 0.0f, 0.0f);
 
@@ -80,6 +85,31 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// to face the camera. PaperZD handles the visual direction via animation.
 	GetSprite()->SetUsingAbsoluteRotation(true);
 	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+
+	// --- Combat Components Setup ---
+	
+	// Hurtbox: Detects damage taken
+	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
+	HurtboxComponent->SetupAttachment(GetSprite()); // Attach to sprite so it follows visual representation
+	HurtboxComponent->SetBoxExtent(FVector(20.f, 20.f, 40.f));
+	HurtboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hitboxes
+	HurtboxComponent->SetGenerateOverlapEvents(true);
+
+	// Weapon Sprite: Visual representation of the weapon
+	WeaponSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("WeaponSprite"));
+	WeaponSprite->SetupAttachment(GetSprite()); // Initially attached to sprite root, will snap to socket later
+	WeaponSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Purely visual
+
+	// Hitbox: Deals damage
+	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
+	HitboxComponent->SetupAttachment(RootComponent); // Attached to root, positioned via AnimNotifies or Logic
+	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
+	HitboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hurtboxes
+	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
+
+	// Bind the overlap event
+	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnHitboxOverlap);
 }
 
 void AGGJCharacter::BeginPlay()
@@ -90,6 +120,10 @@ void AGGJCharacter::BeginPlay()
 	// doesn't play the fall animation if we are spawning on the ground.
 	// If we are actually in the air, the next physics update will correct it to Falling.
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+	// Reset Combat States on Spawn
+	ActionState = ECharacterActionState::None;
+	AttackComboIndex = 0;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -141,7 +175,7 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
-	// FIX: Check only 2D velocity (XY). If falling vertically (Z), rotation would reset to 0.
+	// Check only 2D velocity (XY). If falling vertically (Z), rotation would reset to 0, which we want to avoid.
 	if (GetVelocity().SizeSquared2D() <= 1.0f) return;
 	
 	FRotator CameraRotation = FollowCamera->GetComponentRotation();
@@ -153,8 +187,8 @@ void AGGJCharacter::UpdateAnimationDirection()
 
 	AnimDirection = DeltaYaw;
 
-	// FIX FLIP: If moving Left (negative DeltaYaw), flip the sprite.
-	// DeltaYaw is approx -90 for left, +90 for right.
+	// Flip sprite based on movement direction relative to the camera.
+	// DeltaYaw is approx -90 for left (flip), +90 for right (normal).
 	if (DeltaYaw < -5.0f && DeltaYaw > -175.0f)
 	{
 		GetSprite()->SetRelativeScale3D(FVector(-1.0f, 1.0f, 1.0f));
@@ -178,6 +212,9 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
 {
 	if (Controller != nullptr)
 	{
+		// Prevent movement if we are doing a blocking action (Like Attacking or Rolling)
+		if (ActionState != ECharacterActionState::None) return;
+
 		// Calculate a movement direction based on Camera rotation.
 		// This ensures controls remain intuitive (W is always "Up" on screen) even if the camera rotates.
 		const FRotator Rotation = FollowCamera->GetComponentRotation();
@@ -189,4 +226,78 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
+}
+
+void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// Ignore self
+	if (OtherActor == this) return;
+
+	// Check if we hit a Hurtbox (usually you check for a specific Tag or Interface)
+	if (OtherComp && OtherComp->ComponentHasTag(TEXT("Hurtbox")))
+	{
+		// Apply Damage
+		// UGameplayStatics::ApplyDamage(OtherActor, 10.0f, Controller, this, UDamageType::StaticClass());
+	}
+}
+
+void AGGJCharacter::EquipWeapon(UPaperFlipbook* WeaponFlipbook, FName SocketName)
+{
+	if (WeaponSprite && GetSprite())
+	{
+		WeaponSprite->SetFlipbook(WeaponFlipbook);
+		
+		// Snap the weapon sprite to the specified socket on the main character sprite
+		WeaponSprite->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+	}
+}
+
+void AGGJCharacter::UnequipWeapon()
+{
+	if (WeaponSprite)
+	{
+		WeaponSprite->SetFlipbook(nullptr);
+	}
+}
+
+void AGGJCharacter::PerformAttack()
+{
+	// If we are already attacking or doing something else, ignore input (or implement buffering here)
+	if (ActionState != ECharacterActionState::None) return;
+
+	// LOGIC:
+	// If the Combo Timer is active, it means we are within the window of a previous attack -> Advance Combo.
+	// If not, we are starting a new chain -> Reset to 0.
+	if (GetWorld()->GetTimerManager().IsTimerActive(ComboTimerHandle))
+	{
+		AttackComboIndex++;
+		// Wrap around if we exceed the max combo count (optional, or just clamp)
+		if (AttackComboIndex >= MaxComboCount)
+		{
+			AttackComboIndex = 0;
+		}
+	}
+	else
+	{
+		AttackComboIndex = 0;
+	}
+
+	// Stop the reset timer because we are now executing an attack
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+
+	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
+	ActionState = ECharacterActionState::Attacking;
+}
+
+void AGGJCharacter::OnAttackFinished()
+{
+	ActionState = ECharacterActionState::None;
+
+	// Start the timer. If the player doesn't attack again within 'ComboWindowTime', the combo resets.
+	GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AGGJCharacter::ResetCombo, ComboWindowTime, false);
+}
+
+void AGGJCharacter::ResetCombo()
+{
+	AttackComboIndex = 0;
 }
