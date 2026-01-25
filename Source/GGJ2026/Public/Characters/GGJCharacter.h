@@ -34,6 +34,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 	float AnimDirection;
 	
+	/** Speed of the character (XY plane magnitude) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
+	float Speed;
+
+	/** True if the character is moving faster than a small threshold */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
+	bool bIsMoving;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

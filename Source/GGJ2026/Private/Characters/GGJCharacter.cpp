@@ -16,7 +16,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 {
 	// --- Capsule Component Setup ---
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(30.f, 60.0f);
+	GetCapsuleComponent()->InitCapsuleSize(30.f, 85.0f);
 	GetCapsuleComponent()->SetUseCCD(true);
 
 	// --- Character Rotation Setup ---
@@ -28,10 +28,12 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// --- Camera Boom Setup ---
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 1500.0f; // Distance for Top-Down view
+	CameraBoom->TargetArmLength = 5000.0f; // Distance for Top-Down view
 	CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 75.0f); // Slight offset
 	CameraBoom->SetUsingAbsoluteRotation(true); // Don't rotate arm with character
-	CameraBoom->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f)); // Angle looking down
+	
+	// FIX SLOWNESS: Changed from -20 to -45. At -20 the perspective flattened vertical movement making it seem slow.
+	CameraBoom->SetRelativeRotation(FRotator(-45.0f, -90.0f, 0.0f)); 
 	
 	// Disable inheritance to prevent camera jitter during character rotation
 	CameraBoom->bInheritPitch = false;
@@ -58,13 +60,18 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// Allow movement in all directions (XY plane), removing the default 2D side-scroller constraint
 	GetCharacterMovement()->bConstrainToPlane = false;
 	
-	// Rotate the character capsule towards a movement direction
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
+	// FIX JITTER:
+	// Disable physical capsule rotation. Visual direction is handled solely by animation.
+	// This completely eliminates camera jitter.
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 0.0f, 0.0f);
 
 	// Use flat base for floor checks (prevents sliding off ledges in 2D)
 	GetCharacterMovement()->bUseFlatBaseForFloorChecks = true;
 	
+	// Initialize AnimDirection to 180 (Front/South) so the character spawns facing the camera
+	AnimDirection = 180.0f;
+
 	// --- Sprite Component Setup ---
 	GetSprite()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetSprite()->SetCastShadow(true);
@@ -72,6 +79,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// IMPORTANT: Capsule rotates for movement logic, but Sprite must stay fixed (Billboard)
 	// to face the camera. PaperZD handles the visual direction via animation.
 	GetSprite()->SetUsingAbsoluteRotation(true);
+	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 }
 
 void AGGJCharacter::BeginPlay()
@@ -91,7 +99,17 @@ void AGGJCharacter::BeginPlay()
 void AGGJCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// Calculate speed and movement state for AnimBP
+	Speed = GetVelocity().Size2D();
+	bIsMoving = Speed > 1.0f;
 	
+	// DEBUG: Print values to screen to verify C++ is working
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f"), Speed, bIsMoving, AnimDirection));
+	}
+
 	UpdateAnimationDirection();
 }
 
@@ -113,7 +131,8 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
-	if (GetVelocity().IsNearlyZero()) return;
+	// FIX: Check only 2D velocity (XY). If falling vertically (Z), rotation would reset to 0.
+	if (GetVelocity().SizeSquared2D() <= 1.0f) return;
 	
 	FRotator CameraRotation = FollowCamera->GetComponentRotation();
 	FRotator VelocityRotation = GetVelocity().ToOrientationRotator();
@@ -123,6 +142,17 @@ void AGGJCharacter::UpdateAnimationDirection()
 	float DeltaYaw = FRotator::NormalizeAxis(VelocityRotation.Yaw - CameraRotation.Yaw);
 
 	AnimDirection = DeltaYaw;
+
+	// FIX FLIP: If moving Left (negative DeltaYaw), flip the sprite.
+	// DeltaYaw is approx -90 for left, +90 for right.
+	if (DeltaYaw < -5.0f && DeltaYaw > -175.0f)
+	{
+		GetSprite()->SetRelativeScale3D(FVector(-1.0f, 1.0f, 1.0f));
+	}
+	else
+	{
+		GetSprite()->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+	}
 }
 
 void AGGJCharacter::Move(const FInputActionValue& Value)
