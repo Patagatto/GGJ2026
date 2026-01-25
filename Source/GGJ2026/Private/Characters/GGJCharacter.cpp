@@ -314,6 +314,10 @@ void AGGJCharacter::StartJumpSequence()
 	// Prevent jumping if we are doing a blocking action (Like Attacking or Rolling)
 	if (ActionState != ECharacterActionState::None) return;
 
+	// Reset combo index and cancel any pending combo timer when jumping
+	AttackComboIndex = 0;
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+
 	// If the timer is already active, we are already waiting to jump. Do not restart the timer.
 	if (GetWorld()->GetTimerManager().IsTimerActive(JumpTimerHandle)) return;
 
@@ -322,10 +326,12 @@ void AGGJCharacter::StartJumpSequence()
 	// If a delay is set, start the timer
 	if (JumpDelayTime > 0.0f)
 	{
+		bStartJumping = true;
 		GetWorld()->GetTimerManager().SetTimer(JumpTimerHandle, this, &AGGJCharacter::PerformJump, JumpDelayTime, false);
 	}
 	else
 	{
+		bStartJumping = true;
 		// Otherwise jump immediately
 		PerformJump();
 	}
@@ -348,6 +354,7 @@ void AGGJCharacter::StopJumpSequence()
 void AGGJCharacter::PerformJump()
 {
 	Jump();
+	bStartJumping = false;
 
 	// If the player released the button during the delay, we cut the jump short immediately
 	if (bJumpStopPending)
