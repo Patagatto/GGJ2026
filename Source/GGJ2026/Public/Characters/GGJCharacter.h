@@ -41,6 +41,11 @@ public:
 	/** True if the character is moving faster than a small threshold */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
 	bool bIsMoving;
+	
+	/** Jump state check booleans for Anim Blueprint*/
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
+	bool bIsJumping;
+
 
 protected:
 	virtual void BeginPlay() override;
