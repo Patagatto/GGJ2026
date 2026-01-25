@@ -103,11 +103,15 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	// Calculate speed and movement state for AnimBP
 	Speed = GetVelocity().Size2D();
 	bIsMoving = Speed > 1.0f;
+
+	// Update jumping state (True if in air)
+	bIsJumping = GetCharacterMovement()->IsFalling();
+	VerticalVelocity = GetVelocity().Z;
 	
 	// DEBUG: Print values to screen to verify C++ is working
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f"), Speed, bIsMoving, AnimDirection));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
 	}
 
 	UpdateAnimationDirection();
@@ -160,7 +164,13 @@ void AGGJCharacter::Move(const FInputActionValue& Value)
 {
 	// Input is Vector2D (X = Right/Left, Y = Forward/Backward)
 	FVector2D MovementVector = Value.Get<FVector2D>();
+	
+	// Call the logic function
+	ApplyMovementInput(MovementVector);
+}
 
+void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
+{
 	if (Controller != nullptr)
 	{
 		// Calculate a movement direction based on Camera rotation.

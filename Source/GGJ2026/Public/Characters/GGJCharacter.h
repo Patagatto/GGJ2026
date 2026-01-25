@@ -46,6 +46,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
 	bool bIsJumping;
 
+	/** Vertical Velocity (Z) for Jump/Fall animation states */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
+	float VerticalVelocity;
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -53,9 +57,16 @@ protected:
 	
 	void UpdateAnimationDirection();
 	
-	
-	/** Called for movement input */
+	/** Handler for the Input Action (Internal C++ binding) */
 	void Move(const FInputActionValue& Value);
+
+public:
+	/** 
+	 * Applies movement logic relative to the camera. 
+	 * Exposed to Blueprint so designers can drive movement from other sources (e.g. UI, AI, Custom Scripts).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void ApplyMovementInput(FVector2D MovementVector);
 
 public:
 	/** Default Input Mapping Context */
