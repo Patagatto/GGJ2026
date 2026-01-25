@@ -40,11 +40,11 @@ public:
 
 	/** True if the character is moving faster than a small threshold */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	bool bIsMoving;
+	bool bIsMoving = false;
 	
 	/** Jump state check booleans for Anim Blueprint*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	bool bIsJumping;
+	bool bIsJumping = false;
 
 	/** Vertical Velocity (Z) for Jump/Fall animation states */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)

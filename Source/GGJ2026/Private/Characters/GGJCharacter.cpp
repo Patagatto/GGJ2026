@@ -85,6 +85,11 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 void AGGJCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Unreal defaults to Falling on spawn. We force Walking so the first frame 
+	// doesn't play the fall animation if we are spawning on the ground.
+	// If we are actually in the air, the next physics update will correct it to Falling.
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
