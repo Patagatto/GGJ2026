@@ -97,16 +97,36 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
 	int32 MaxComboCount = 3;
 
+	/** Delay in seconds before the jump force is applied. Useful for anticipation animations. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Jump")
+	float JumpDelayTime = 0.05f;
+
 	FTimerHandle ComboTimerHandle;
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Landed(const FHitResult& Hit) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
 	void UpdateAnimationDirection();
 	
 	/** Handler for the Input Action (Internal C++ binding) */
 	void Move(const FInputActionValue& Value);
+
+	/** Timer handle for the jump delay */
+	FTimerHandle JumpTimerHandle;
+
+	/** Flag to track if the jump button was released during the delay */
+	bool bJumpStopPending = false;
+
+	/** Starts the jump sequence (starts timer or jumps immediately) */
+	void StartJumpSequence();
+
+	/** Handles the release of the jump button (cancels variable height or marks pending stop) */
+	void StopJumpSequence();
+
+	/** Executes the actual jump */
+	void PerformJump();
 
 	/** Internal function to reset combo when timer expires */
 	void ResetCombo();

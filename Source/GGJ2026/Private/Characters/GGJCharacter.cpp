@@ -124,6 +124,7 @@ void AGGJCharacter::BeginPlay()
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
 	AttackComboIndex = 0;
+	bJumpStopPending = false;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -133,6 +134,15 @@ void AGGJCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+}
+
+void AGGJCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	// Reset combo index and cancel any pending combo timer when landing
+	AttackComboIndex = 0;
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 }
 
 void AGGJCharacter::Tick(float DeltaSeconds)
@@ -165,8 +175,8 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		
 		// Jump
 
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AGGJCharacter::StartJumpSequence);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AGGJCharacter::StopJumpSequence);
 		// Move
 		
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGGJCharacter::Move);
@@ -175,7 +185,7 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
-	// Check only 2D velocity (XY). If falling vertically (Z), rotation would reset to 0, which we want to avoid.
+	// Only check 2D velocity (XY) to prevent rotation reset when falling vertically (Z).
 	if (GetVelocity().SizeSquared2D() <= 1.0f) return;
 	
 	FRotator CameraRotation = FollowCamera->GetComponentRotation();
@@ -212,9 +222,6 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
 {
 	if (Controller != nullptr)
 	{
-		// Prevent movement if we are doing a blocking action (Like Attacking or Rolling)
-		if (ActionState != ECharacterActionState::None) return;
-
 		// Calculate a movement direction based on Camera rotation.
 		// This ensures controls remain intuitive (W is always "Up" on screen) even if the camera rotates.
 		const FRotator Rotation = FollowCamera->GetComponentRotation();
@@ -300,4 +307,56 @@ void AGGJCharacter::OnAttackFinished()
 void AGGJCharacter::ResetCombo()
 {
 	AttackComboIndex = 0;
+}
+
+void AGGJCharacter::StartJumpSequence()
+{
+	// Prevent jumping if we are doing a blocking action (Like Attacking or Rolling)
+	if (ActionState != ECharacterActionState::None) return;
+
+	// If the timer is already active, we are already waiting to jump. Do not restart the timer.
+	if (GetWorld()->GetTimerManager().IsTimerActive(JumpTimerHandle)) return;
+
+	bJumpStopPending = false;
+
+	// If a delay is set, start the timer
+	if (JumpDelayTime > 0.0f)
+	{
+		GetWorld()->GetTimerManager().SetTimer(JumpTimerHandle, this, &AGGJCharacter::PerformJump, JumpDelayTime, false);
+	}
+	else
+	{
+		// Otherwise jump immediately
+		PerformJump();
+	}
+}
+
+void AGGJCharacter::StopJumpSequence()
+{
+	// If the timer is still active, it means we released the button BEFORE the jump happened.
+	// We mark it as pending so that when the jump finally happens, we immediately stop it (short hop).
+	if (GetWorld()->GetTimerManager().IsTimerActive(JumpTimerHandle))
+	{
+		bJumpStopPending = true;
+	}
+	else
+	{
+		StopJumping();
+	}
+}
+
+void AGGJCharacter::PerformJump()
+{
+	Jump();
+
+	// If the player released the button during the delay, we cut the jump short immediately
+	if (bJumpStopPending)
+	{
+		// Use a small delay (0.1s) instead of NextTick to ensure the Jump input is processed 
+		// by the CharacterMovementComponent before clearing it. 
+		// NextTick can sometimes be too fast, causing the jump to be ignored.
+		FTimerHandle StopJumpTimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(StopJumpTimerHandle, this, &ACharacter::StopJumping, 0.1f, false);
+		bJumpStopPending = false;
+	}
 }
