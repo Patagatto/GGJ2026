@@ -8,7 +8,7 @@ public class GGJ2026 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" , "Paper2D", "PaperZD", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" , "Paper2D", "PaperZD", "EnhancedInput", "UMG" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
