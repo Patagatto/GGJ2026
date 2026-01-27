@@ -30,10 +30,10 @@ protected:
 	
 	//Programming properties	
 	UPROPERTY(EditDefaultsOnly)
-	int32 CurrentIndex;
+	int32 CurrentIndex = 0;
 	
 	UPROPERTY(EditDefaultsOnly)
-	float DelayBetweenText;
+	float DelayBetweenText = 0.05f;
 	
 	UPROPERTY(EditDefaultsOnly)
 	FString CurrentString;
