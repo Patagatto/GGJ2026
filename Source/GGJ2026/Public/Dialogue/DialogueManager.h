@@ -26,18 +26,18 @@ protected:
 	int32 CurrentIndex = 0;
 	
 	// Current sequence
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY()
 	FSequenceStruct CurrentSequence;
 	
 	// The actor that called the function
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY()
 	AActor* CurrentInstigator;
 	
 	UPROPERTY()
-	UWidgetComponent* Widget;
+	UWidgetComponent* DialogueWidget;
 	
-	UPROPERTY(EditDefaultsOnly)
-	UTextBoxWidget* TextBoxWidgetWidget;
+	UPROPERTY()
+	UTextBoxWidget* TextBoxWidget;
 	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

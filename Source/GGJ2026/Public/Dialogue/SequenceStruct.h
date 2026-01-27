@@ -14,7 +14,7 @@ struct GGJ2026_API FSequenceStruct
 	bool IsText;
 	
 	UPROPERTY(EditAnywhere)
-	TArray<FText> TextLines;
+	TArray<FString> TextLines;
 	
 	// Create icons, for visual textbox
 };

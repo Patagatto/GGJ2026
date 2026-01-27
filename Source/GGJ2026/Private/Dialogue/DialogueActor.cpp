@@ -8,7 +8,7 @@
 // Sets default values
 ADialogueActor::ADialogueActor()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+ 	// Set this actor to call Tick() every frame. You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 }
 
@@ -16,8 +16,6 @@ ADialogueActor::ADialogueActor()
 void ADialogueActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	DialogueManager = Cast<ADialogueManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ADialogueManager::StaticClass()));
 }
 
 // Called every frame
@@ -28,5 +26,8 @@ void ADialogueActor::Tick(float DeltaTime)
 
 void ADialogueActor::Interact()
 {
-	//DialogueManager->StartDialogue(this);
+	if (DialogueManager)
+	{
+		DialogueManager->StartDialogue(this, CurrentSequence);
+	}
 }

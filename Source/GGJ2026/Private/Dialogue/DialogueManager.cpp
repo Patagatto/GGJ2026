@@ -3,6 +3,8 @@
 
 #include "Dialogue/DialogueManager.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "UI/TextBox.h"
 
 // Sets default values
@@ -17,9 +19,11 @@ void ADialogueManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (Widget)
+	DialogueWidget = Cast<UWidgetComponent>(GetComponentByClass(UWidgetComponent::StaticClass()));
+	
+	if (DialogueWidget)
 	{
-		TextBoxWidgetWidget = Cast<UTextBoxWidget>(Widget->GetWidget());
+		TextBoxWidget = Cast<UTextBoxWidget>(DialogueWidget->GetWidget());
 	}
 }
 
@@ -31,13 +35,13 @@ void ADialogueManager::Tick(float DeltaTime)
 
 void ADialogueManager::StartDialogue(AActor* InstigatorActor, const FSequenceStruct& SequenceStruct)
 {
-	if (Widget->bHiddenInGame)
+	if (DialogueWidget->bHiddenInGame)
 	{
 		IsComplete = false;
 		CurrentIndex = 0;
 		CurrentInstigator = InstigatorActor;
 		CurrentSequence = SequenceStruct;
-		Widget->SetHiddenInGame(false);
+		DialogueWidget->SetHiddenInGame(false);
 		NextDialogue();
 	}
 }
@@ -46,20 +50,23 @@ void ADialogueManager::NextDialogue()
 {
 	if (!IsComplete)
 	{
-		if (TextBoxWidgetWidget->IsFillingText) //IS FILLING TEXT
+		if (TextBoxWidget->IsFillingText)
 		{
-			//Skip Dialogue
+			TextBoxWidget->SkipDialogueText();
 		}
 		else
 		{
-			if (true) //IS THE LAST DIALOGUE SEQUENCE
+			if (CurrentIndex >= CurrentSequence.TextLines.Num())
 			{
-				Widget->SetHiddenInGame(true);
+				DialogueWidget->SetHiddenInGame(true);
 				IsComplete = true;
 			}
 			else
 			{
-				// Set widget location and rotation, play pop up anim, set dialogue text
+				//DialogueWidget->SetWorldLocationAndRotation(CurrentInstigator->GetActorLocation(), UKismetMathLibrary::FindLookAtRotation(CurrentInstigator->GetActorLocation(), UGameplayStatics::GetPlayerPawn(GetWorld(), 0)->GetActorLocation()));
+				DialogueWidget->SetWorldLocation(CurrentInstigator->GetActorLocation());
+				
+				TextBoxWidget->InitDialogueText(CurrentSequence.TextLines[CurrentIndex]);
 				CurrentIndex++;
 			}
 		}
