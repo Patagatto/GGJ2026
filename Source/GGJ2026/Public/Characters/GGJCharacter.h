@@ -52,10 +52,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HurtboxComponent;
 
-	/** Sprite component for the equipped weapon. Attached to the main Sprite via Socket. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	UPaperFlipbookComponent* WeaponSprite;
-	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UPaperFlipbookComponent* MaskSprite;
 
@@ -105,6 +101,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
 	int32 MaxComboCount = 3;
 
+	/** Damage values for each step of the combo. Index 0 = Hit 1, Index 1 = Hit 2, etc. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
+	TArray<float> ComboDamageValues;
+
+	/** Max Health of the character */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxHealth = 100.0f;
+
+	/** Current Health of the character */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
+	float CurrentHealth;
+
+	/** Duration of invincibility after taking damage (seconds) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	float InvincibilityDuration = 1.0f;
+
+	/** Duration of stun (inability to move) after taking damage (seconds) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	float HitStunDuration = 0.4f;
+
+	/** Strength of the knockback when hit */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	float KnockbackStrength = 600.0f;
+
 	/** Delay in seconds before the jump force is applied. Useful for anticipation animations. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Jump")
 	float JumpDelayTime = 0.05f;
@@ -139,9 +159,21 @@ protected:
 	/** Internal function to reset combo when timer expires */
 	void ResetCombo();
 
+	/** If true, character ignores incoming damage */
+	bool bIsInvincible = false;
+	FTimerHandle InvincibilityTimerHandle;
+	FTimerHandle StunTimerHandle;
+
+	/** Called when the stun duration ends to return to normal state */
+	void OnStunFinished();
+	void DisableInvincibility();
+
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
 	void OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	/** Event called when this actor takes damage */
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 public:
 	/** 
@@ -151,14 +183,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void ApplyMovementInput(FVector2D MovementVector);
 
-	/** Equips a weapon flipbook to a specific socket on the character sprite */
-	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void EquipWeapon(UPaperFlipbook* WeaponFlipbook, FName SocketName = TEXT("HandSocket"));
-
-	/** Removes the current weapon */
-	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void UnequipWeapon();
-
 	/** Call this when the player presses the Attack button. Handles Combo logic automatically. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void PerformAttack();
@@ -167,7 +191,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnAttackFinished();
 
-public:
+	/** 
+	 * Activates the combat hitbox.
+	 * To be called via AnimNotify at the start of the active punch frame.
+	 * @param SocketName The name of the socket in the Flipbook where the hitbox should spawn (e.g., "HitSocket").
+	 * @param Extent (Optional) The size of the hitbox for this specific attack.
+	 */
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ActivateMeleeHitbox(FName SocketName, FVector Extent = FVector(30.f, 30.f, 30.f));
+
+	/** Deactivates the hitbox. To be called via AnimNotify at the end of the strike. */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void DeactivateMeleeHitbox();
+
+	
 	/** Default Input Mapping Context */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;

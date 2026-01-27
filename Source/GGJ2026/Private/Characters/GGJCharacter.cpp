@@ -10,9 +10,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "PaperFlipbookComponent.h"
 #include "Components/BoxComponent.h"
-#include "PaperFlipbook.h"
-#include "Engine/DamageEvents.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/DamageType.h"
 
 
 AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
@@ -99,14 +99,11 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	MaskSprite->SetupAttachment(GetSprite());
 	MaskSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Purely visual
 	
-	// Weapon Sprite: Visual representation of the weapon
-	WeaponSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("WeaponSprite"));
-	WeaponSprite->SetupAttachment(GetSprite()); // Initially attached to sprite root, will snap to socket later
-	WeaponSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Purely visual
-
 	// Hitbox: Deals damage
 	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
-	HitboxComponent->SetupAttachment(RootComponent); // Attached to root, positioned via AnimNotifies or Logic
+	// IMPORTANTE: Attacchiamo allo Sprite, non alla Root. 
+	// In questo modo se lo sprite viene flippato (Scale X = -1), l'hitbox si sposta correttamente.
+	HitboxComponent->SetupAttachment(GetSprite()); 
 	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
 	HitboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hurtboxes
 	HitboxComponent->SetGenerateOverlapEvents(true);
@@ -114,6 +111,20 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 
 	// Bind the overlap event
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnHitboxOverlap);
+
+	// Default Combo Damages (Low, Low, High)
+	ComboDamageValues.Add(10.0f);
+	ComboDamageValues.Add(10.0f);
+	ComboDamageValues.Add(25.0f);
+
+	// Initialize Health defaults
+	MaxHealth = 100.0f;
+	CurrentHealth = MaxHealth;
+
+	// Combat Defaults
+	InvincibilityDuration = 1.0f;
+	HitStunDuration = 0.4f;
+	KnockbackStrength = 600.0f;
 }
 
 void AGGJCharacter::BeginPlay()
@@ -124,6 +135,9 @@ void AGGJCharacter::BeginPlay()
 	// doesn't play the fall animation if we are spawning on the ground.
 	// If we are actually in the air, the next physics update will correct it to Falling.
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+	// Initialize Health
+	CurrentHealth = MaxHealth;
 
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
@@ -224,6 +238,8 @@ void AGGJCharacter::Move(const FInputActionValue& Value)
 
 void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
 {
+	if (ActionState != ECharacterActionState::None) return;
+	
 	if (Controller != nullptr)
 	{
 		// Calculate a movement direction based on Camera rotation.
@@ -247,28 +263,110 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 	// Check if we hit a Hurtbox (usually you check for a specific Tag or Interface)
 	if (OtherComp && OtherComp->ComponentHasTag(TEXT("Hurtbox")))
 	{
+		// Calculate damage based on current combo index
+		float DamageToDeal = 10.0f; // Fallback default
+		if (ComboDamageValues.IsValidIndex(AttackComboIndex))
+		{
+			DamageToDeal = ComboDamageValues[AttackComboIndex];
+		}
+
 		// Apply Damage
-		// UGameplayStatics::ApplyDamage(OtherActor, 10.0f, Controller, this, UDamageType::StaticClass());
+		// Controller is the Instigator (who caused it), this is the DamageCauser
+		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
 	}
 }
 
-void AGGJCharacter::EquipWeapon(UPaperFlipbook* WeaponFlipbook, FName SocketName)
+float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	if (WeaponSprite && GetSprite())
+	// Call the base class - important for internal engine logic
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	// If already dead or invincible, don't take damage
+	if (ActionState == ECharacterActionState::Dead || bIsInvincible)
 	{
-		WeaponSprite->SetFlipbook(WeaponFlipbook);
-		
-		// Snap the weapon sprite to the specified socket on the main character sprite
-		WeaponSprite->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		return 0.0f;
+	}
+
+	if (ActualDamage > 0.0f)
+	{
+		// Reduce Health
+		CurrentHealth = FMath::Clamp(CurrentHealth - ActualDamage, 0.0f, MaxHealth);
+
+		if (CurrentHealth > 0.0f)
+		{
+			// --- HIT REACTION LOGIC ---
+			
+			// 1. Enter Hurt State (Stops movement and attacks)
+			ActionState = ECharacterActionState::Hurt;
+			
+			// 2. Interrupt any ongoing Attack Combo
+			GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+			DeactivateMeleeHitbox(); // Ensure hitbox is off
+
+			// 3. Apply Knockback (Push character away from damage source)
+			if (DamageCauser)
+			{
+				FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+				LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
+			}
+
+			// 4. Set Invincibility (I-Frames)
+			bIsInvincible = true;
+			GetWorld()->GetTimerManager().SetTimer(InvincibilityTimerHandle, this, &AGGJCharacter::DisableInvincibility, InvincibilityDuration, false);
+
+			// 5. Set Stun Timer (When to regain control)
+			GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
+		}
+
+		// Debug Log
+		// UE_LOG(LogTemp, Warning, TEXT("Player took %f damage. Health: %f"), ActualDamage, CurrentHealth);
+
+		if (CurrentHealth <= 0.0f)
+		{
+			// Handle Death
+			ActionState = ECharacterActionState::Dead;
+			// TODO: Disable Input, Play Death Animation, Show Game Over Screen
+		}
+	}
+
+	return ActualDamage;
+}
+
+void AGGJCharacter::OnStunFinished()
+{
+	if (ActionState != ECharacterActionState::Dead)
+	{
+		ActionState = ECharacterActionState::None;
 	}
 }
 
-void AGGJCharacter::UnequipWeapon()
+void AGGJCharacter::DisableInvincibility()
 {
-	if (WeaponSprite)
+	bIsInvincible = false;
+	// Optional: Stop flashing visual effect here
+}
+
+void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
+{
+	// Controllo di sicurezza: Se il socket non esiste nello sprite corrente, avvisa!
+	if (!GetSprite()->DoesSocketExist(SocketName))
 	{
-		WeaponSprite->SetFlipbook(nullptr);
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FString::Printf(TEXT("MISSING SOCKET: %s on Sprite!"), *SocketName.ToString()));
+		return; // Evita di attaccare alla root per sbaglio
 	}
+
+	// Sposta l'hitbox sul socket definito nel frame corrente del Flipbook
+	// SnapToTargetNotIncludingScale mantiene la scala dell'hitbox indipendente dallo sprite (evita distorsioni)
+	HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+	
+	HitboxComponent->SetBoxExtent(Extent);
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+
+void AGGJCharacter::DeactivateMeleeHitbox()
+{
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Opzionale: Resetta la posizione se vuoi, ma non è strettamente necessario dato che viene riposizionata all'attivazione
 }
 
 void AGGJCharacter::PerformAttack()
