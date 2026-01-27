@@ -3,12 +3,13 @@
 
 #include "Dialogue/DialogueManager.h"
 
+#include "UI/TextBox.h"
+
 // Sets default values
 ADialogueManager::ADialogueManager()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
-
 }
 
 // Called when the game starts or when spawned
@@ -16,23 +17,26 @@ void ADialogueManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (Widget)
+	{
+		TextBoxWidgetWidget = Cast<UTextBoxWidget>(Widget->GetWidget());
+	}
 }
 
 // Called every frame
 void ADialogueManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
-void ADialogueManager::StartDialogue()
+void ADialogueManager::StartDialogue(AActor* InstigatorActor, const FSequenceStruct& SequenceStruct)
 {
 	if (Widget->bHiddenInGame)
 	{
 		IsComplete = false;
 		CurrentIndex = 0;
-		//CurrentInstigator = Instigator;
-		// Current Sequence
+		CurrentInstigator = InstigatorActor;
+		CurrentSequence = SequenceStruct;
 		Widget->SetHiddenInGame(false);
 		NextDialogue();
 	}
@@ -42,7 +46,7 @@ void ADialogueManager::NextDialogue()
 {
 	if (!IsComplete)
 	{
-		if (true) //IS FILLING TEXT
+		if (TextBoxWidgetWidget->IsFillingText) //IS FILLING TEXT
 		{
 			//Skip Dialogue
 		}

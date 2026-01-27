@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SequenceStruct.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Actor.h"
+#include "UI/TextBox.h"
 #include "DialogueManager.generated.h"
 
 UCLASS()
@@ -19,18 +21,23 @@ public:
 protected:
 	// Defines if all the dialogue sequences have been shown
 	bool IsComplete = false;
+		
+	// Defines the current dialogue sequence
+	int32 CurrentIndex = 0;
 	
 	// Current sequence
-	
-	// Defines the current dialogue sequence
-	int CurrentIndex;
+	UPROPERTY(EditDefaultsOnly)
+	FSequenceStruct CurrentSequence;
 	
 	// The actor that called the function
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly)
 	AActor* CurrentInstigator;
 	
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY()
 	UWidgetComponent* Widget;
+	
+	UPROPERTY(EditDefaultsOnly)
+	UTextBoxWidget* TextBoxWidgetWidget;
 	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -39,7 +46,7 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void StartDialogue();
+	void StartDialogue(AActor* InstigatorActor, const FSequenceStruct& SequenceStruct);
 	
 	void NextDialogue();
 };
