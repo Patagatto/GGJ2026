@@ -55,6 +55,9 @@ public:
 	/** Sprite component for the equipped weapon. Attached to the main Sprite via Socket. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UPaperFlipbookComponent* WeaponSprite;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UPaperFlipbookComponent* MaskSprite;
 
 	/** Component that deals damage (The Weapon) - Enabled only during attacks */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))

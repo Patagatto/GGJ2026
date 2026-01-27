@@ -95,6 +95,10 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hitboxes
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 
+	MaskSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("MaskSprite"));
+	MaskSprite->SetupAttachment(GetSprite());
+	MaskSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Purely visual
+	
 	// Weapon Sprite: Visual representation of the weapon
 	WeaponSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("WeaponSprite"));
 	WeaponSprite->SetupAttachment(GetSprite()); // Initially attached to sprite root, will snap to socket later
