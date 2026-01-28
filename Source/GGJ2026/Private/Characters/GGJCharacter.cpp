@@ -233,12 +233,12 @@ void AGGJCharacter::Move(const FInputActionValue& Value)
 	FVector2D MovementVector = Value.Get<FVector2D>();
 	
 	// Call the logic function
-	ApplyMovementInput(MovementVector);
+	ApplyMovementInput(MovementVector, false);
 }
 
-void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector)
+void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreState)
 {
-	if (ActionState != ECharacterActionState::None) return;
+	if (!IgnoreState && ActionState != ECharacterActionState::None) return;
 	
 	if (Controller != nullptr)
 	{
@@ -346,6 +346,59 @@ void AGGJCharacter::DisableInvincibility()
 	// Optional: Stop flashing visual effect here
 }
 
+AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
+{
+	if (InputDirection.IsNearlyZero())
+	{
+		InputDirection = GetActorForwardVector();
+	}
+	
+	FVector StartLoc;
+	FVector EndLoc;
+	
+	StartLoc = GetActorLocation();
+	EndLoc = StartLoc + (InputDirection.GetSafeNormal() * 2000);
+	
+	FCollisionQueryParams CollisionParams;
+	//CollisionParams.AddIgnoredActor(GetOwner());
+	TArray<FHitResult> HitResults;
+	
+	bool HasHit = GetWorld()->SweepMultiByChannel(HitResults,StartLoc, EndLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(200.0f), CollisionParams);
+
+	if (HasHit)
+	{
+		for (const FHitResult& HitResult : HitResults)
+		{
+			if (AGGJCharacter* Enemy = Cast<AGGJCharacter>(HitResult.GetActor()))
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Actor hit")));
+				return Enemy;
+			}
+		}
+	}
+	return nullptr;
+}
+
+void AGGJCharacter::PerformLunge(AActor* Target)
+{
+	if (!Target) return;
+	
+	FVector DirectionToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	
+	DirectionToTarget.Z = 0.0f;
+	
+	FRotator LookAtRot = FRotationMatrix::MakeFromX(DirectionToTarget).Rotator();
+	
+	float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+	float StopDistance = 100.0f;
+	
+	if (Distance <= StopDistance) return;
+	
+	FVector LaunchVelocity = DirectionToTarget * 1000.0f;
+	
+	LaunchCharacter(LaunchVelocity, true, true);
+}
+
 void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 {
 	// Controllo di sicurezza: Se il socket non esiste nello sprite corrente, avvisa!
@@ -373,7 +426,9 @@ void AGGJCharacter::PerformAttack()
 {
 	// If we are already attacking or doing something else, ignore input (or implement buffering here)
 	if (ActionState != ECharacterActionState::None) return;
-
+	
+	PerformLunge(FindBestTarget(GetLastMovementInputVector()));
+	
 	// LOGIC:
 	// If the Combo Timer is active, it means we are within the window of a previous attack -> Advance Combo.
 	// If not, we are starting a new chain -> Reset to 0.
@@ -390,12 +445,13 @@ void AGGJCharacter::PerformAttack()
 	{
 		AttackComboIndex = 0;
 	}
-
+	
 	// Stop the reset timer because we are now executing an attack
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 
 	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
 	ActionState = ECharacterActionState::Attacking;
+	
 }
 
 void AGGJCharacter::OnAttackFinished()

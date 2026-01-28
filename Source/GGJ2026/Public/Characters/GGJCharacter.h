@@ -130,7 +130,6 @@ public:
 	float JumpDelayTime = 0.05f;
 
 	FTimerHandle ComboTimerHandle;
-
 protected:
 	virtual void BeginPlay() override;
 	virtual void Landed(const FHitResult& Hit) override;
@@ -167,6 +166,10 @@ protected:
 	/** Called when the stun duration ends to return to normal state */
 	void OnStunFinished();
 	void DisableInvincibility();
+	
+	AActor* FindBestTarget(FVector InputDirection);
+	
+	void PerformLunge(AActor* Target);
 
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
@@ -181,7 +184,7 @@ public:
 	 * Exposed to Blueprint so designers can drive movement from other sources (e.g. UI, AI, Custom Scripts).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void ApplyMovementInput(FVector2D MovementVector);
+	void ApplyMovementInput(FVector2D MovementVector, bool IgnoreState);
 
 	/** Call this when the player presses the Attack button. Handles Combo logic automatically. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
