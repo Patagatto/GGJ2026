@@ -84,6 +84,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
 	UInputAction* AttackAction;
 
+	/** Roll Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputAction* RollAction;
+
 	// ========================================================================
 	// DESIGNER CONFIGURATION (EditAnywhere)
 	// ========================================================================
@@ -154,9 +158,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float JumpDelayTime = 0.1f;
 
+	/** Initial burst speed of the roll. Input can still influence movement after the burst. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
+	float RollSpeed = 1200.0f;
+
 	// ========================================================================
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
 	// ========================================================================
+
+	/** The last valid direction the character was moving or inputting towards (World Space) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	FVector LastFacingDirection;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	float AnimDirection;
@@ -216,6 +228,7 @@ protected:
 	FTimerHandle JumpTimerHandle;
 	FTimerHandle InvincibilityTimerHandle;
 	FTimerHandle StunTimerHandle;
+	float DefaultBrakingDeceleration;
 
 	/** Flag to track if the jump button was released during the delay */
 	bool bJumpStopPending = false;
@@ -258,6 +271,9 @@ protected:
 	void StartCharging();
 	void UpdateCharging(const FInputActionValue& Value);
 	void FinishCharging();
+	
+	/** Executes the roll logic (State change, Physics, Invincibility) */
+	void PerformRoll();
 
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
@@ -281,6 +297,10 @@ public:
 	/** Call this via AnimNotify (PaperZD) when the attack animation ends or reaches a transition point. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnAttackFinished();
+
+	/** Called via AnimNotify when roll animation ends */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void OnRollFinished();
 
 	/** 
 	 * Activates the combat hitbox.

@@ -145,6 +145,9 @@ void AGGJCharacter::BeginPlay()
 	// If we are actually in the air, the next physics update will correct it to Falling.
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 
+	// Save the default braking deceleration (drag) so we can restore it after rolling
+	DefaultBrakingDeceleration = GetCharacterMovement()->BrakingDecelerationWalking;
+
 	// Initialize Health
 	CurrentHealth = MaxHealth;
 
@@ -163,6 +166,12 @@ void AGGJCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+
+	// Initialize LastFacingDirection based on the initial AnimDirection (180) and Camera Rotation
+	// This ensures we start with a valid direction even before moving
+	FRotator CameraRotation = FollowCamera->GetComponentRotation();
+	float InitialYaw = CameraRotation.Yaw + AnimDirection;
+	LastFacingDirection = FRotator(0.0f, InitialYaw, 0.0f).Vector();
 }
 
 void AGGJCharacter::Tick(float DeltaSeconds)
@@ -205,6 +214,9 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AGGJCharacter::StartCharging);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AGGJCharacter::UpdateCharging);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Completed, this, &AGGJCharacter::FinishCharging);
+
+		// Roll
+		EnhancedInputComponent->BindAction(RollAction, ETriggerEvent::Started, this, &AGGJCharacter::PerformRoll);
 	}
 }
 
@@ -212,15 +224,21 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
-	// Only check 2D velocity (XY) to prevent rotation reset when falling vertically (Z).
-	if (GetVelocity().SizeSquared2D() <= 1.0f) return;
+	FVector Velocity = GetVelocity();
+
+	// Update LastFacingDirection from Velocity if moving significantly.
+	// If not moving, LastFacingDirection retains the last Input (updated in ApplyMovementInput).
+	if (Velocity.SizeSquared2D() > 1.0f)
+	{
+		LastFacingDirection = Velocity.GetSafeNormal2D();
+	}
 	
 	FRotator CameraRotation = FollowCamera->GetComponentRotation();
-	FRotator VelocityRotation = GetVelocity().ToOrientationRotator();
+	FRotator TargetRotation = LastFacingDirection.ToOrientationRotator();
 
 	// Calculate the angle difference between the camera direction and velocity direction
 	// This allows the AnimBP to select the correct directional animation (Front, Back, Side)
-	float DeltaYaw = FRotator::NormalizeAxis(VelocityRotation.Yaw - CameraRotation.Yaw);
+	float DeltaYaw = FRotator::NormalizeAxis(TargetRotation.Yaw - CameraRotation.Yaw);
 
 	AnimDirection = DeltaYaw;
 
@@ -247,8 +265,6 @@ void AGGJCharacter::Move(const FInputActionValue& Value)
 
 void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreState)
 {
-	if (!IgnoreState && ActionState != ECharacterActionState::None) return;
-	
 	if (Controller != nullptr)
 	{
 		// Calculate a movement direction based on Camera rotation.
@@ -258,6 +274,17 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		// Update LastFacingDirection based on Raw Input
+		// Even if movement is blocked (e.g. Attacking), we want to know where the player is aiming.
+		FVector WorldInput = (ForwardDirection * MovementVector.Y) + (RightDirection * MovementVector.X);
+		if (WorldInput.SizeSquared() > 0.01f)
+		{
+			LastFacingDirection = WorldInput.GetSafeNormal();
+		}
+
+		// Standard Action Game Roll: You commit to the direction. No steering during the roll.
+		if (!IgnoreState && ActionState != ECharacterActionState::None) return;
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
@@ -298,7 +325,7 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
 	// If already dead or invincible, don't take damage
-	if (ActionState == ECharacterActionState::Dead || bIsInvincible)
+	if (ActionState == ECharacterActionState::Dead || ActionState == ECharacterActionState::Rolling || bIsInvincible)
 	{
 		return 0.0f;
 	}
@@ -382,13 +409,11 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 	// If no input, use the direction the character is visually facing
 	if (InputDirection.IsNearlyZero())
 	{
-		FRotator CameraRotation = FollowCamera->GetComponentRotation();
-		float TargetYaw = CameraRotation.Yaw + AnimDirection;
-		InputDirection = FRotator(0.0f, TargetYaw, 0.0f).Vector();
+		InputDirection = LastFacingDirection;
 	}
 	else
 	{
-		// Normalizziamo per sicurezza
+		// Normalize for safety
 		InputDirection.Normalize();
 	}
 	
@@ -483,21 +508,21 @@ void AGGJCharacter::PerformLunge(AActor* Target)
 	// 2. TARGET PREDICTION
 	// If the enemy is moving, calculate where they will be at the end of the lunge.
 	FVector TargetVelocity = Target->GetVelocity();
-	TargetVelocity.Z = 0.0f; // Ignoriamo movimento verticale (salto nemico)
+	TargetVelocity.Z = 0.0f; // Ignore vertical movement (e.g. enemy jumping)
 
 	FVector PredictedTargetLoc = Target->GetActorLocation() + (TargetVelocity * LungeDuration);
 
-	// Ricalcoliamo la direzione verso il punto PREDETTO
+	// Recalculate direction towards the predicted point
 	FVector DirectionToTarget = (PredictedTargetLoc - GetActorLocation()).GetSafeNormal();
 	DirectionToTarget.Z = 0.0f;
 	
-	// Ruotiamo verso dove sarà il nemico
+	// Rotate towards the predicted enemy position
 	SetActorRotation(DirectionToTarget.Rotation());
 
 	// Recalculate distance to PREDICTED point
 	float PredictedDistance = FVector::Dist(GetActorLocation(), PredictedTargetLoc);
 
-	// JITTER FIX: If we will be close enough to the target (or they run into us), avoid lunge.
+	// If we will be close enough to the target (or they run into us), avoid lunge.
 	if (PredictedDistance <= ActualStopDistance + 25.0f) return;
 
 	// --- PHYSICS VELOCITY CALCULATION ON PREDICTED TARGET ---
@@ -525,7 +550,7 @@ void AGGJCharacter::PerformLunge(AActor* Target)
 		RequiredSpeed = DistanceToTravel / LungeDuration;
 	}
 
-	// RELAXED CLAMP:
+	// Velocity Clamp:
 	// Initial velocity (V0) must be higher than average speed (LungeSpeed) to overcome initial friction.
 	// Allow an initial peak up to double the configured speed to guarantee arrival.
 	// If we limit V0 strictly to LungeSpeed, we will never reach distant targets.
@@ -667,6 +692,67 @@ void AGGJCharacter::OnAttackFinished()
 void AGGJCharacter::ResetCombo()
 {
 	AttackComboIndex = 0;
+}
+
+void AGGJCharacter::PerformRoll()
+{
+	// Cannot roll if Dead, Hurt or already Rolling.
+	// Can roll from None, Attacking, Charging (Interrupting them).
+	if (ActionState == ECharacterActionState::Dead || 
+		ActionState == ECharacterActionState::Hurt || 
+		ActionState == ECharacterActionState::Rolling)
+	{
+		return;
+	}
+
+	// INTERRUPT LOGIC:
+	// If we are attacking or charging, we must cancel everything.
+	if (ActionState == ECharacterActionState::Attacking || ActionState == ECharacterActionState::Charging)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+		bPendingCombo = false;
+		CurrentChargeTime = 0.0f;
+		DeactivateMeleeHitbox();
+	}
+
+	// Determine Direction
+	FVector RollDirection = GetLastMovementInputVector();
+	
+	// Handle Stick Drift / Small Input:
+	// If the input is very small (magnitude < 0.1), treat it as zero so we use the character's facing direction instead.
+	if (RollDirection.SizeSquared() < 0.01f)
+	{
+		// If standing still, roll in the direction we are facing visually
+		RollDirection = LastFacingDirection;
+	}
+	else
+	{
+		RollDirection.Normalize();
+	}
+
+	// Rotate character to face roll direction immediately
+	SetActorRotation(RollDirection.Rotation());
+
+	// Physics Adjustment:
+	// Normally, CharacterMovement brakes hard when you stop input.
+	// We disable braking during the roll so the Launch impulse carries us smoothly
+	// for the entire duration without needing player input.
+	GetCharacterMovement()->BrakingDecelerationWalking = 0.0f;
+	LaunchCharacter(RollDirection * RollSpeed, true, false);
+
+	// Set State (Invincibility is handled in TakeDamage by checking this state)
+	ActionState = ECharacterActionState::Rolling;
+}
+
+void AGGJCharacter::OnRollFinished()
+{
+	if (ActionState == ECharacterActionState::Rolling)
+	{
+		ActionState = ECharacterActionState::None;
+		
+		// Restore normal braking so we stop when releasing keys
+		GetCharacterMovement()->BrakingDecelerationWalking = DefaultBrakingDeceleration;
+	}
 }
 
 #pragma endregion
