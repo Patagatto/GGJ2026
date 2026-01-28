@@ -4,15 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardComponent.h"
+#include "DetourCrowdAIController.h"
 #include "EnemyAIController.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class GGJ2026_API AEnemyAIController : public AAIController
+class GGJ2026_API AEnemyAIController : public ADetourCrowdAIController
 {
 	GENERATED_BODY()
 	
