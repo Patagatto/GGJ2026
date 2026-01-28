@@ -26,11 +26,11 @@ protected:
 	int32 CurrentIndex = 0;
 	
 	// Current sequence
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	FSequenceStruct CurrentSequence;
 	
 	// The actor that called the function
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	AActor* CurrentInstigator;
 	
 	UPROPERTY()

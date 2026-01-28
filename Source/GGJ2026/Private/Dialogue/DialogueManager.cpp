@@ -35,15 +35,19 @@ void ADialogueManager::Tick(float DeltaTime)
 
 void ADialogueManager::StartDialogue(AActor* InstigatorActor, const FSequenceStruct& SequenceStruct)
 {
-	if (DialogueWidget->bHiddenInGame)
+	if (DialogueWidget)
 	{
-		IsComplete = false;
-		CurrentIndex = 0;
-		CurrentInstigator = InstigatorActor;
-		CurrentSequence = SequenceStruct;
-		DialogueWidget->SetHiddenInGame(false);
-		NextDialogue();
+		if (DialogueWidget->bHiddenInGame)
+        {
+            IsComplete = false;
+            CurrentIndex = 0;
+            CurrentInstigator = InstigatorActor;
+            CurrentSequence = SequenceStruct;
+            DialogueWidget->SetHiddenInGame(false);
+            NextDialogue();
+        }
 	}
+	
 }
 
 void ADialogueManager::NextDialogue()
