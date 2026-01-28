@@ -11,6 +11,8 @@
 #include "PaperFlipbookComponent.h"
 #include "Components/BoxComponent.h"
 #include "TimerManager.h"
+#include "Characters/EnemyCharacter.h"
+#include "Engine/OverlapResult.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/DamageType.h"
 
@@ -18,6 +20,7 @@
 AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#pragma region Components Setup
 	// --- Capsule Component Setup ---
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(30.f, 85.0f);
@@ -54,6 +57,9 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	FollowCamera->SetFieldOfView(10.0f);
 	FollowCamera->bUsePawnControlRotation = false;
 
+#pragma endregion
+
+#pragma region Movement Setup
 	// --- Character Movement Setup ---
 	GetCharacterMovement()->GravityScale = 2.0f;
 	GetCharacterMovement()->AirControl = 0.80f;
@@ -76,7 +82,9 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	
 	// Initialize AnimDirection to 180 (Front/South) so the character spawns facing the camera
 	AnimDirection = 180.0f;
+#pragma endregion
 
+#pragma region Visuals & Combat Setup
 	// --- Sprite Component Setup ---
 	GetSprite()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetSprite()->SetCastShadow(true);
@@ -101,8 +109,8 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	
 	// Hitbox: Deals damage
 	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
-	// IMPORTANTE: Attacchiamo allo Sprite, non alla Root. 
-	// In questo modo se lo sprite viene flippato (Scale X = -1), l'hitbox si sposta correttamente.
+	// IMPORTANT: Attach to Sprite, not Root.
+	// This ensures the hitbox moves correctly when the sprite is flipped (Scale X = -1).
 	HitboxComponent->SetupAttachment(GetSprite()); 
 	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
 	HitboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hurtboxes
@@ -125,6 +133,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	InvincibilityDuration = 1.0f;
 	HitStunDuration = 0.4f;
 	KnockbackStrength = 600.0f;
+#pragma endregion
 }
 
 void AGGJCharacter::BeginPlay()
@@ -142,7 +151,9 @@ void AGGJCharacter::BeginPlay()
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
 	AttackComboIndex = 0;
+	CurrentDamageMultiplier = 1.0f;
 	bJumpStopPending = false;
+	bPendingCombo = false;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -152,15 +163,6 @@ void AGGJCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-}
-
-void AGGJCharacter::Landed(const FHitResult& Hit)
-{
-	Super::Landed(Hit);
-
-	// Reset combo index and cancel any pending combo timer when landing
-	AttackComboIndex = 0;
-	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 }
 
 void AGGJCharacter::Tick(float DeltaSeconds)
@@ -198,8 +200,15 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		// Move
 		
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGGJCharacter::Move);
+
+		// Attack (Charge Logic)
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AGGJCharacter::StartCharging);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AGGJCharacter::UpdateCharging);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Completed, this, &AGGJCharacter::FinishCharging);
 	}
 }
+
+#pragma region Movement Logic
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
@@ -255,6 +264,10 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 	}
 }
 
+#pragma endregion
+
+#pragma region Combat Logic
+
 void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	// Ignore self
@@ -269,6 +282,9 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		{
 			DamageToDeal = ComboDamageValues[AttackComboIndex];
 		}
+
+		// Apply Charge Multiplier
+		DamageToDeal *= CurrentDamageMultiplier;
 
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
@@ -302,6 +318,7 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 			// 2. Interrupt any ongoing Attack Combo
 			GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 			DeactivateMeleeHitbox(); // Ensure hitbox is off
+			bPendingCombo = false;
 
 			// 3. Apply Knockback (Push character away from damage source)
 			if (DamageCauser)
@@ -346,70 +363,196 @@ void AGGJCharacter::DisableInvincibility()
 	// Optional: Stop flashing visual effect here
 }
 
+void AGGJCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	// Reset combo index and cancel any pending combo timer when landing
+	AttackComboIndex = 0;
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+	bPendingCombo = false;
+}
+
+#pragma endregion
+
+#pragma region Lunge & Aim Assist
+
 AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 {
+	// If no input, use the direction the character is visually facing
 	if (InputDirection.IsNearlyZero())
 	{
-		InputDirection = GetActorForwardVector();
+		FRotator CameraRotation = FollowCamera->GetComponentRotation();
+		float TargetYaw = CameraRotation.Yaw + AnimDirection;
+		InputDirection = FRotator(0.0f, TargetYaw, 0.0f).Vector();
+	}
+	else
+	{
+		// Normalizziamo per sicurezza
+		InputDirection.Normalize();
 	}
 	
-	FVector StartLoc;
-	FVector EndLoc;
+	FVector StartLoc = GetActorLocation();
 	
-	StartLoc = GetActorLocation();
-	EndLoc = StartLoc + (InputDirection.GetSafeNormal() * 2000);
-	
-	FCollisionQueryParams CollisionParams;
-	//CollisionParams.AddIgnoredActor(GetOwner());
-	TArray<FHitResult> HitResults;
-	
-	bool HasHit = GetWorld()->SweepMultiByChannel(HitResults,StartLoc, EndLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(200.0f), CollisionParams);
+	// Use Sphere Overlap instead of Sweep to find all candidates around us
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
 
-	if (HasHit)
+	GetWorld()->OverlapMultiByChannel(
+		Overlaps,
+		StartLoc,
+		FQuat::Identity,
+		ECC_Pawn,
+		FCollisionShape::MakeSphere(LungeRange),
+		Params
+	);
+
+	AActor* BestTarget = nullptr;
+	float BestDistanceSq = FLT_MAX;
+	
+	// Convert angle to Cosine for Dot Product (performance optimization)
+	// Example: 45 degrees -> 0.707. If Dot > 0.707, it's inside the cone.
+	float MinDotProduct = FMath::Cos(FMath::DegreesToRadians(LungeHalfAngle));
+
+	for (const FOverlapResult& Overlap : Overlaps)
 	{
-		for (const FHitResult& HitResult : HitResults)
+		if (AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Overlap.GetActor()))
 		{
-			if (AGGJCharacter* Enemy = Cast<AGGJCharacter>(HitResult.GetActor()))
+			// 1. Calculate direction to enemy
+			FVector DirToEnemy = (Enemy->GetActorLocation() - StartLoc);
+			float DistSq = DirToEnemy.SizeSquared(); // Use Squared to avoid square roots
+			DirToEnemy.Normalize();
+
+			// 2. Angle Check (Aim Assist Cone)
+			// Compare Input Direction with Enemy Direction
+			float Dot = FVector::DotProduct(InputDirection, DirToEnemy);
+
+			if (Dot >= MinDotProduct)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Actor hit")));
-				return Enemy;
+				// 3. Distance Check (Pick the closest valid one)
+				if (DistSq < BestDistanceSq)
+				{
+					BestDistanceSq = DistSq;
+					BestTarget = Enemy;
+				}
 			}
 		}
 	}
-	return nullptr;
+	
+	return BestTarget;
 }
 
 void AGGJCharacter::PerformLunge(AActor* Target)
 {
 	if (!Target) return;
 	
-	FVector DirectionToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	// 1. Calculate Static Distance (Current Position) to estimate duration
+	float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
 	
+	float MyRadius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+	float TargetRadius = 30.0f; // Fallback default
+	
+	if (ACharacter* TargetChar = Cast<ACharacter>(Target))
+	{
+		TargetRadius = TargetChar->GetCapsuleComponent()->GetScaledCapsuleRadius();
+	}
+
+	// Safety buffer to avoid clipping
+	float DynamicStopDistance = MyRadius + TargetRadius + 10.0f;
+	float ActualStopDistance = FMath::Max(LungeStopDistance, DynamicStopDistance);
+	
+	// Check static distance BEFORE prediction.
+	// If we are already physically close to the target NOW, do not lunge, even if they are running away.
+	// Just rotate towards them and attack in place.
+	// Buffer increased to 25.0f to avoid micro-jitters when already in attack range.
+	if (Distance <= ActualStopDistance + 25.0f)
+	{
+		FVector DirToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		if (!DirToTarget.IsNearlyZero())
+		{
+			SetActorRotation(DirToTarget.Rotation());
+		}
+		return;
+	}
+
+	// Estimate duration based on current distance
+	float EstimatedDist = FMath::Max(0.0f, Distance - ActualStopDistance);
+	float LungeDuration = FMath::Clamp(EstimatedDist / LungeSpeed, 0.15f, 0.4f);
+
+	// 2. TARGET PREDICTION
+	// If the enemy is moving, calculate where they will be at the end of the lunge.
+	FVector TargetVelocity = Target->GetVelocity();
+	TargetVelocity.Z = 0.0f; // Ignoriamo movimento verticale (salto nemico)
+
+	FVector PredictedTargetLoc = Target->GetActorLocation() + (TargetVelocity * LungeDuration);
+
+	// Ricalcoliamo la direzione verso il punto PREDETTO
+	FVector DirectionToTarget = (PredictedTargetLoc - GetActorLocation()).GetSafeNormal();
 	DirectionToTarget.Z = 0.0f;
 	
-	FRotator LookAtRot = FRotationMatrix::MakeFromX(DirectionToTarget).Rotator();
+	// Ruotiamo verso dove sarà il nemico
+	SetActorRotation(DirectionToTarget.Rotation());
+
+	// Recalculate distance to PREDICTED point
+	float PredictedDistance = FVector::Dist(GetActorLocation(), PredictedTargetLoc);
+
+	// JITTER FIX: If we will be close enough to the target (or they run into us), avoid lunge.
+	if (PredictedDistance <= ActualStopDistance + 25.0f) return;
+
+	// --- PHYSICS VELOCITY CALCULATION ON PREDICTED TARGET ---
+	// Aim slightly "inside" the stop distance (Overshoot) to compensate for BrakingDeceleration
+	// which would otherwise make us stop short. Physical collision will stop us at the right spot.
+	// 25.0f is a sufficient margin to ensure contact.
+	float DistanceToTravel = PredictedDistance - (ActualStopDistance - 25.0f);
 	
-	float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-	float StopDistance = 100.0f;
+	if (DistanceToTravel <= 0.0f) return;
 	
-	if (Distance <= StopDistance) return;
+	// Inverse physics formula for friction: V0 = (d * k) / (1 - exp(-k * t))
+	// This ensures we cover EXACTLY the distance despite friction.
+	float Friction = GetCharacterMovement()->GroundFriction;
+	float RequiredSpeed;
+
+	// Apply friction compensation ONLY if grounded.
+	// If airborne, friction is different or zero.
+	if (GetCharacterMovement()->IsMovingOnGround() && Friction > 0.0f)
+	{
+		float Denom = 1.0f - FMath::Exp(-Friction * LungeDuration);
+		RequiredSpeed = (DistanceToTravel * Friction) / Denom;
+	}
+	else
+	{
+		RequiredSpeed = DistanceToTravel / LungeDuration;
+	}
+
+	// RELAXED CLAMP:
+	// Initial velocity (V0) must be higher than average speed (LungeSpeed) to overcome initial friction.
+	// Allow an initial peak up to double the configured speed to guarantee arrival.
+	// If we limit V0 strictly to LungeSpeed, we will never reach distant targets.
+	float FinalSpeed = FMath::Min(RequiredSpeed, LungeSpeed * 2.0f);
 	
-	FVector LaunchVelocity = DirectionToTarget * 1000.0f;
-	
-	LaunchCharacter(LaunchVelocity, true, true);
+	FVector LaunchVelocity = DirectionToTarget * FinalSpeed;
+
+	// Apply Launch.
+	// bXYOverride = true replaces current velocity (immediate stop if moving elsewhere)
+	// bZOverride = false maintains current gravity
+	LaunchCharacter(LaunchVelocity, true, false);
 }
+
+#pragma endregion
+
+#pragma region Hitbox Management
 
 void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 {
-	// Controllo di sicurezza: Se il socket non esiste nello sprite corrente, avvisa!
+	// Safety Check: If socket doesn't exist on current sprite, warn and abort.
 	if (!GetSprite()->DoesSocketExist(SocketName))
 	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FString::Printf(TEXT("MISSING SOCKET: %s on Sprite!"), *SocketName.ToString()));
-		return; // Evita di attaccare alla root per sbaglio
+		return; // Avoid attaching to root by mistake
 	}
 
-	// Sposta l'hitbox sul socket definito nel frame corrente del Flipbook
-	// SnapToTargetNotIncludingScale mantiene la scala dell'hitbox indipendente dallo sprite (evita distorsioni)
+	// Move hitbox to the socket defined in the current Flipbook frame.
+	// SnapToTargetNotIncludingScale keeps hitbox scale independent of sprite (avoids distortion).
 	HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 	
 	HitboxComponent->SetBoxExtent(Extent);
@@ -419,20 +562,28 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 void AGGJCharacter::DeactivateMeleeHitbox()
 {
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	// Opzionale: Resetta la posizione se vuoi, ma non è strettamente necessario dato che viene riposizionata all'attivazione
 }
+
+#pragma endregion
+
+#pragma region Attack & Charge Logic
 
 void AGGJCharacter::PerformAttack()
 {
-	// If we are already attacking or doing something else, ignore input (or implement buffering here)
-	if (ActionState != ECharacterActionState::None) return;
+	// Allow attack if we are in None state OR if we are currently Charging.
+	// If we are Rolling, Hurt, or Dead, we cannot attack.
+	if (ActionState != ECharacterActionState::None && ActionState != ECharacterActionState::Charging) return;
 	
-	PerformLunge(FindBestTarget(GetLastMovementInputVector()));
+	// Aim Assist Logic:
+	// Find target based on player input (or facing direction if idle)
+	AActor* LungeTarget = FindBestTarget(GetLastMovementInputVector());
+	PerformLunge(LungeTarget);
 	
 	// LOGIC:
 	// If the Combo Timer is active, it means we are within the window of a previous attack -> Advance Combo.
+	// OR if we flagged a pending combo from StartCharging (because we paused the timer there).
 	// If not, we are starting a new chain -> Reset to 0.
-	if (GetWorld()->GetTimerManager().IsTimerActive(ComboTimerHandle))
+	if (GetWorld()->GetTimerManager().IsTimerActive(ComboTimerHandle) || bPendingCombo)
 	{
 		AttackComboIndex++;
 		// Wrap around if we exceed the max combo count (optional, or just clamp)
@@ -448,10 +599,61 @@ void AGGJCharacter::PerformAttack()
 	
 	// Stop the reset timer because we are now executing an attack
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+	bPendingCombo = false; // Reset flag consumed
 
 	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
 	ActionState = ECharacterActionState::Attacking;
 	
+}
+
+void AGGJCharacter::StartCharging()
+{
+	// Can only start charging from Idle/Run (None)
+	if (ActionState != ECharacterActionState::None) return;
+
+	ActionState = ECharacterActionState::Charging;
+	CurrentChargeTime = 0.0f;
+	CurrentDamageMultiplier = 1.0f;
+
+	// Check if we are continuing a combo BEFORE clearing the timer.
+	if (GetWorld()->GetTimerManager().IsTimerActive(ComboTimerHandle))
+	{
+		bPendingCombo = true;
+	}
+	else
+	{
+		bPendingCombo = false;
+	}
+
+	// IMPORTANT: Pause the combo timer!
+	// If we hold the button for 2 seconds, we don't want the combo to reset to 0 while we are charging.
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+}
+
+void AGGJCharacter::UpdateCharging(const FInputActionValue& Value)
+{
+	if (ActionState != ECharacterActionState::Charging) return;
+
+	// Accumulate time
+	CurrentChargeTime += GetWorld()->GetDeltaSeconds();
+
+	// Optional: You can clamp it here for UI purposes, but for damage calc we clamp at the end
+	// if (CurrentChargeTime > MaxChargeTime) CurrentChargeTime = MaxChargeTime;
+}
+
+void AGGJCharacter::FinishCharging()
+{
+	// If we were not charging (maybe interrupted by hit), do nothing
+	if (ActionState != ECharacterActionState::Charging) return;
+
+	// Calculate Multiplier based on how long we held the button
+	// 0.0s -> 1.0x damage
+	// MaxChargeTime -> MaxChargeDamageMultiplier
+	float Alpha = FMath::Clamp(CurrentChargeTime / MaxChargeTime, 0.0f, 1.0f);
+	CurrentDamageMultiplier = FMath::Lerp(1.0f, MaxChargeDamageMultiplier, Alpha);
+
+	// Execute the attack
+	PerformAttack();
 }
 
 void AGGJCharacter::OnAttackFinished()
@@ -466,6 +668,10 @@ void AGGJCharacter::ResetCombo()
 {
 	AttackComboIndex = 0;
 }
+
+#pragma endregion
+
+#pragma region Jump Logic
 
 void AGGJCharacter::StartJumpSequence()
 {
@@ -525,3 +731,5 @@ void AGGJCharacter::PerformJump()
 		bJumpStopPending = false;
 	}
 }
+
+#pragma endregion

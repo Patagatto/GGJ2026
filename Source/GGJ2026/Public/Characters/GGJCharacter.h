@@ -26,13 +26,14 @@ enum class ECharacterActionState : uint8
 	Attacking	UMETA(DisplayName = "Attacking"),
 	Rolling		UMETA(DisplayName = "Rolling"),
 	Hurt		UMETA(DisplayName = "Hurt"),
+	Charging	UMETA(DisplayName = "Charging"),
 	Dead		UMETA(DisplayName = "Dead")
 };
 
 /**
  * 
  */
-UCLASS(Abstract)
+UCLASS(Abstract, meta = (PrioritizeCategories = "GGJ"))
 class GGJ2026_API AGGJCharacter : public APaperZDCharacter
 {
 	GENERATED_BODY()
@@ -41,6 +42,10 @@ class GGJ2026_API AGGJCharacter : public APaperZDCharacter
 
 public:
 	AGGJCharacter(const FObjectInitializer& ObjectInitializer);
+
+	// ========================================================================
+	// COMPONENTS
+	// ========================================================================
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -52,84 +57,146 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HurtboxComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	UPaperFlipbookComponent* MaskSprite;
-
 	/** Component that deals damage (The Weapon) - Enabled only during attacks */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HitboxComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
-	float AnimDirection;
-	
-	/** Speed of the character (XY plane magnitude) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	float Speed;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UPaperFlipbookComponent* MaskSprite;
 
-	/** True if the character is moving faster than a small threshold */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	bool bIsMoving = false;
-	
-	/** Jump state check booleans for Anim Blueprint*/
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	bool bIsJumping = false;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	bool bStartJumping = false;
-	
-	
+	// ========================================================================
+	// INPUT ASSETS
+	// ========================================================================
 
-	/** Vertical Velocity (Z) for Jump/Fall animation states */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Animation)
-	float VerticalVelocity;
+	/** Default Input Mapping Context */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputMappingContext* DefaultMappingContext;
 
-	// --- Combat & Actions State ---
+	/** Jump Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputAction* JumpAction;
 
-	/** Current Action State (None, Attacking, Rolling, Dead, etc.) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Animation)
-	ECharacterActionState ActionState = ECharacterActionState::None;
+	/** Move Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputAction* MoveAction;
 
-	/** Current index for attack combos (e.g. 0=First Swing, 1=Second Swing) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Animation)
-	int32 AttackComboIndex = 0;
+	/** Attack Input Action (Tap to Attack, Hold to Charge) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputAction* AttackAction;
 
-	/** Time window (in seconds) after an attack to input the next combo command before it resets */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
-	float ComboWindowTime = 0.8f;
+	// ========================================================================
+	// DESIGNER CONFIGURATION (EditAnywhere)
+	// ========================================================================
 
-	/** Max number of attacks in the combo chain (e.g. 3 for a 3-hit combo) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
-	int32 MaxComboCount = 3;
-
-	/** Damage values for each step of the combo. Index 0 = Hit 1, Index 1 = Hit 2, etc. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
-	TArray<float> ComboDamageValues;
+	// --- Stats ---
 
 	/** Max Health of the character */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float MaxHealth = 100.0f;
 
-	/** Current Health of the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
-	float CurrentHealth;
-
 	/** Duration of invincibility after taking damage (seconds) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float InvincibilityDuration = 1.0f;
 
 	/** Duration of stun (inability to move) after taking damage (seconds) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float HitStunDuration = 0.4f;
 
 	/** Strength of the knockback when hit */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Stats")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float KnockbackStrength = 600.0f;
 
-	/** Delay in seconds before the jump force is applied. Useful for anticipation animations. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Jump")
-	float JumpDelayTime = 0.05f;
+	// --- Combat (General) ---
 
-	FTimerHandle ComboTimerHandle;
+	/** Time window (in seconds) after an attack to input the next combo command before it resets */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
+	float ComboWindowTime = 0.8f;
+
+	/** Max number of attacks in the combo chain (e.g. 3 for a 3-hit combo) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
+	int32 MaxComboCount = 3;
+
+	/** Damage values for each step of the combo. Index 0 = Hit 1, Index 1 = Hit 2, etc. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
+	TArray<float> ComboDamageValues;
+
+	// --- Combat (Lunge / Aim Assist) ---
+
+	/** Max distance to search for an enemy to lunge towards */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
+	float LungeRange = 400.0f;
+
+	/** Max angle (in degrees) to consider an enemy valid. 45 = 90 degree cone in front. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
+	float LungeHalfAngle = 60.0f;
+
+	/** How fast the character moves during the lunge */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
+	float LungeSpeed = 1500.0f;
+
+	/** Distance from target to stop lunging (avoids clipping into enemy) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
+	float LungeStopDistance = 60.0f;
+
+	// --- Combat (Charge Attack) ---
+
+	/** Max time (seconds) to reach full charge damage */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Charge", meta = (DisplayPriority = "0"))
+	float MaxChargeTime = 1.0f;
+
+	/** Damage multiplier when fully charged */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Charge", meta = (DisplayPriority = "0"))
+	float MaxChargeDamageMultiplier = 2.0f;
+
+	// --- Movement ---
+
+	/** Delay in seconds before the jump force is applied. Useful for anticipation animations. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
+	float JumpDelayTime = 0.1f;
+
+	// ========================================================================
+	// RUNTIME STATE (VisibleAnywhere - Debugging)
+	// ========================================================================
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float AnimDirection;
+
+	/** Speed of the character (XY plane magnitude) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float Speed;
+
+	/** True if the character is moving faster than a small threshold */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	bool bIsMoving = false;
+
+	/** Jump state check booleans for Anim Blueprint*/
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	bool bIsJumping = false;
+
+	/** Trigger for the start of the jump animation */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	bool bStartJumping = false;
+
+	/** Vertical Velocity (Z) for Jump/Fall animation states */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float VerticalVelocity;
+
+	/** Current Action State (None, Attacking, Rolling, Dead, etc.) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	ECharacterActionState ActionState = ECharacterActionState::None;
+
+	/** Current index for attack combos (e.g. 0=First Swing, 1=Second Swing) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	int32 AttackComboIndex = 0;
+
+	/** Current Health of the character */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float CurrentHealth;
+
+	/** Current charge duration (for AnimBP or UI) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float CurrentChargeTime = 0.0f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Landed(const FHitResult& Hit) override;
@@ -137,14 +204,24 @@ protected:
 	
 	void UpdateAnimationDirection();
 	
+	// --- Internal Logic & State ---
+
 	/** Handler for the Input Action (Internal C++ binding) */
 	void Move(const FInputActionValue& Value);
 
-	/** Timer handle for the jump delay */
+	float CurrentDamageMultiplier = 1.0f;
+	
+	// Timers
+	FTimerHandle ComboTimerHandle;
 	FTimerHandle JumpTimerHandle;
+	FTimerHandle InvincibilityTimerHandle;
+	FTimerHandle StunTimerHandle;
 
 	/** Flag to track if the jump button was released during the delay */
 	bool bJumpStopPending = false;
+
+	/** Flag to track if a combo window was active when charging started */
+	bool bPendingCombo = false;
 
 	/** Starts the jump sequence (starts timer or jumps immediately) */
 	void StartJumpSequence();
@@ -160,16 +237,27 @@ protected:
 
 	/** If true, character ignores incoming damage */
 	bool bIsInvincible = false;
-	FTimerHandle InvincibilityTimerHandle;
-	FTimerHandle StunTimerHandle;
 
 	/** Called when the stun duration ends to return to normal state */
 	void OnStunFinished();
 	void DisableInvincibility();
 	
+	/** 
+	 * Finds the best target based on Input Direction.
+	 * Prioritizes enemies aligned with input and close distance.
+	 */
 	AActor* FindBestTarget(FVector InputDirection);
 	
+	/**
+	 * Launches the character towards the target.
+	 * Calculates velocity to stop exactly near the target.
+	 */
 	void PerformLunge(AActor* Target);
+
+	// Input Handlers for Charging
+	void StartCharging();
+	void UpdateCharging(const FInputActionValue& Value);
+	void FinishCharging();
 
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
@@ -208,16 +296,4 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void DeactivateMeleeHitbox();
 
-	
-	/** Default Input Mapping Context */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputMappingContext* DefaultMappingContext;
-
-	/** Jump Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* JumpAction;
-
-	/** Move Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	UInputAction* MoveAction;
 };
