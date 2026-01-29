@@ -3,6 +3,8 @@
 
 #include "Game/EnemySpawner.h"
 
+#include "AI/EnemySpawnerManager.h"
+
 // Sets default values
 AEnemySpawner::AEnemySpawner()
 {
@@ -16,6 +18,18 @@ void AEnemySpawner::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	UEnemySpawnerManager* SpawnerManager = GetWorld()->GetSubsystem<UEnemySpawnerManager>();
+	SpawnerManager->SetMaxEnemies(MaxEnemies);
+	SpawnerManager->SetMaxActiveEnemies(MaxActiveEnemies);
+	
+	if (EnemyClass)
+	{
+		for (int i = 0; i < MaxEnemies; i++)
+     	{
+			AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
+			SpawnerManager->AddEnemyToPool(Enemy);
+     	}
+	}
 }
 
 // Called every frame

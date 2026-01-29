@@ -10,13 +10,7 @@ void UEnemySpawnerManager::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	
 	ActiveEnemies.Reserve(MaxActiveEnemies);
-	
-	// UGameplayStatics::GetActorOfClass(GetWorld(), );
-	
-	for (int i = 0; i < MaxEnemies; i++)
-	{
-		EnemyPool.Enqueue(Cast<AEnemyCharacter>(GetWorld()->SpawnActor(AEnemyCharacter::StaticClass())));
-	}
+	EnemyPool.Empty();
 }
 
 void UEnemySpawnerManager::SetMaxEnemies(int32 NewMax)
@@ -34,6 +28,14 @@ void UEnemySpawnerManager::SetMaxActiveEnemies(int32 NewMax)
 void UEnemySpawnerManager::SetSpawnRate(float NewRate)
 {
 	SpawnRate = NewRate;
+}
+
+void UEnemySpawnerManager::AddEnemyToPool(AEnemyCharacter* Enemy)
+{
+	if (Enemy)
+	{
+		EnemyPool.Enqueue(Enemy);
+	}
 }
 
 void UEnemySpawnerManager::InitSpawn()

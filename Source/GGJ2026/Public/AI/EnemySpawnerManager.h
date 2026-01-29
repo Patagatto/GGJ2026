@@ -45,6 +45,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetSpawnRate(float NewRate);
 	
+	void AddEnemyToPool(AEnemyCharacter* Enemy);
+	
 	UFUNCTION(BlueprintCallable)
 	void InitSpawn();
 	

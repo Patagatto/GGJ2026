@@ -17,8 +17,7 @@ AEnemyCharacter::AEnemyCharacter()
 	
 	// Box = CreateDefaultSubobject<UBoxComponent>(FName("Box"));
 	// Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
-	
-	AIController = Cast<AEnemyAIController>(Controller);	
+		
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(FName("Health"));
 }
 
@@ -26,7 +25,11 @@ AEnemyCharacter::AEnemyCharacter()
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	SetActorEnableCollision(false);
+	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
+	AIController = Cast<AEnemyAIController>(Controller);
 }
 
 // Called every frame
@@ -49,8 +52,7 @@ void AEnemyCharacter::ActivateEnemy()
 	
 	// Make Enemy Visible
 	SetActorHiddenInGame(false);
-	MaskSprite->SetVisibility(true);
-	GetRootComponent()->SetVisibility(true);
+	GetSprite()->SetVisibility(true);
 	
 	// AI Logic
 	if (AIController) AIController->ActivateEnemyBT();
@@ -64,11 +66,10 @@ void AEnemyCharacter::DeactivateEnemy()
 	
 	// Make Enemy not Visible
 	SetActorHiddenInGame(true);
-	MaskSprite->SetVisibility(false);
-	GetRootComponent()->SetVisibility(false);
+	GetSprite()->SetVisibility(false);
 	
 	// Health
-	HealthComp->Reset();
+	if (HealthComp) HealthComp->Reset();
 	
 	// Stop AI Logic
 	if (AIController) AIController->DeactivateEnemyBT();

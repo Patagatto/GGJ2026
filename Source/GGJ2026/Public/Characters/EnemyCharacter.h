@@ -30,9 +30,6 @@ protected:
 	/** Component that deals damage (The Weapon) - Enabled only during attacks */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HitboxComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UPaperFlipbookComponent* MaskSprite;
 	
 	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	// UBoxComponent* Box;
