@@ -11,7 +11,7 @@ void UEnemySpawnerManager::Initialize(FSubsystemCollectionBase& Collection)
 	
 	ActiveEnemies.Reserve(MaxActiveEnemies);
 	
-	UGameplayStatics::GetActorOfClass(GetWorld(), );
+	// UGameplayStatics::GetActorOfClass(GetWorld(), );
 	
 	for (int i = 0; i < MaxEnemies; i++)
 	{
