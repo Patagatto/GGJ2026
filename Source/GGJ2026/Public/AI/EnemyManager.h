@@ -10,19 +10,22 @@
  * 
  */
 UCLASS()
-class GGJ2026_API UEnemyManager : public UWorldSubsystem
+class GGJ2026_API UEnemyAttackManager : public UWorldSubsystem
 {
 	GENERATED_BODY()
 		
 protected:
 	UPROPERTY(EditAnywhere)
-	int32 MaxToken = 2;
+	int32 MaxTokens = 2;
 	
 	UPROPERTY()
 	TSet<AActor*> ActiveTokenHolders;
 	
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	
+	UFUNCTION(BlueprintCallable)
+	void SetMaxToken(int32 NewMax);
 	
 	// Attack Token Handling
 	UFUNCTION(BlueprintCallable)
@@ -32,5 +35,5 @@ public:
 	bool RequestAttack(AActor* EnemyActor);
 	
 	UFUNCTION(BlueprintCallable)
-	void ReleaseToken(const AActor* EnemyActor);
+	void ReleaseToken(AActor* EnemyActor);
 };

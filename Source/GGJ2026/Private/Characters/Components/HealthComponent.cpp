@@ -10,8 +10,7 @@ UHealthComponent::UHealthComponent()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
-	CurrentHealth = MaxHealth;
-	IsDead = false;
+	Reset();
 }
 
 
@@ -28,6 +27,12 @@ void UHealthComponent::ApplyDamage(float Damage)
 	
 	if (CurrentHealth <= 0.0f) IsDead = true;
 	else if (CurrentHealth > MaxHealth) CurrentHealth = MaxHealth;
+}
+
+void UHealthComponent::Reset()
+{
+	CurrentHealth = MaxHealth;
+	IsDead = false;
 }
 
 

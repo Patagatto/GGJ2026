@@ -17,16 +17,17 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere)
-	float SpawnRate;
-	
-	UPROPERTY(EditAnywhere)
 	int32 MaxEnemies;
 	
 	UPROPERTY(EditAnywhere)
-	TArray<FVector> Spawners;
+	int32 MaxActiveEnemies;
 	
+	UPROPERTY(EditAnywhere)
+	UClass* EnemyClass;
 	
-	
+	UPROPERTY(EditAnywhere)
+	TArray<FVector> Locations;
+		
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
