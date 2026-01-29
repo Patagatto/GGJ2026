@@ -23,4 +23,9 @@ protected:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	UBehaviorTree* AIBehaviorTree;
+	
+	void ActivateEnemyBT();
+	
+	void DeactivateEnemyBT();
+
 };

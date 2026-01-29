@@ -2,6 +2,7 @@
 
 
 #include "AI/EnemyAIController.h"
+
 #include "Navigation/CrowdFollowingComponent.h"
 
 void AEnemyAIController::BeginPlay()
@@ -21,5 +22,18 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 	if (AIBehaviorTree)
 	{
 		RunBehaviorTree(AIBehaviorTree);
+			}
+}
+
+void AEnemyAIController::ActivateEnemyBT()
+{
+	if (AIBehaviorTree)
+	{
+		RunBehaviorTree(AIBehaviorTree);
 	}
+}
+
+void AEnemyAIController::DeactivateEnemyBT()
+{
+	CleanupBrainComponent();
 }

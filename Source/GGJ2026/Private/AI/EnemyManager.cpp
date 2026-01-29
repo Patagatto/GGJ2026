@@ -3,35 +3,40 @@
 
 #include "AI/EnemyManager.h"
 
-void UEnemyManager::Initialize(FSubsystemCollectionBase& Collection)
+void UEnemyAttackManager::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	
-	UE_LOG(LogTemp, Error, TEXT("=== SUBSYSTEM INITIALIZED ==="));
-	UE_LOG(LogTemp, Error, TEXT("World: %s"), *GetWorld()->GetMapName());
 	
 	ActiveTokenHolders.Empty();
 }
 
-bool UEnemyManager::HasToken(AActor* EnemyActor) const
+void UEnemyAttackManager::SetMaxToken(int32 NewMax)
+{
+	MaxTokens = NewMax;
+}
+
+bool UEnemyAttackManager::HasToken(AActor* EnemyActor) const
 {
 	return ActiveTokenHolders.Contains(EnemyActor);
 }
 
-bool UEnemyManager::RequestAttack(AActor* EnemyActor)
+bool UEnemyAttackManager::RequestAttack(AActor* EnemyActor)
 {
-	if (!EnemyActor || (!HasToken(EnemyActor) && ActiveTokenHolders.Num() >= MaxToken)) return false;
+	if (!EnemyActor || (!HasToken(EnemyActor) && ActiveTokenHolders.Num() >= MaxTokens)) return false;
 	
 	if (!HasToken(EnemyActor))	ActiveTokenHolders.Add(EnemyActor);
 	return true;
 }
 
-void UEnemyManager::ReleaseToken(const AActor* EnemyActor)
+void UEnemyAttackManager::ReleaseToken(AActor* EnemyActor)
 {
 	if (EnemyActor)
 	{
-		ActiveTokenHolders.Remove(EnemyActor);
-		ActiveTokenHolders.Compact();
-		ActiveTokenHolders.Shrink();
+		if (HasToken(EnemyActor))
+		{
+			ActiveTokenHolders.Remove(EnemyActor);
+			ActiveTokenHolders.Compact();
+			ActiveTokenHolders.Shrink();
+		}
 	}
 }

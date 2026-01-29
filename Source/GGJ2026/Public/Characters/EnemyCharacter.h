@@ -3,14 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
+#include "PaperZDCharacter.h"
 #include "Components/BoxComponent.h"
 #include "Components/HealthComponent.h"
-#include "GameFramework/Character.h"
 #include "EnemyCharacter.generated.h"
 
 UCLASS()
-class GGJ2026_API AEnemyCharacter : public ACharacter
+class GGJ2026_API AEnemyCharacter : public APaperZDCharacter
 {
 	GENERATED_BODY()
 
@@ -19,16 +20,31 @@ public:
 	AEnemyCharacter();
 
 protected:
+	UPROPERTY(EditAnywhere)
+	float Damage;
+		
+	/** Component that detects incoming damage (The Body) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HurtboxComponent;
+
+	/** Component that deals damage (The Weapon) - Enabled only during attacks */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HitboxComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPaperFlipbookComponent* MaskSprite;
+	
 	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	// UBoxComponent* Box;
+		
 	UPROPERTY()
-	UEnemyManager* AttackManager;
-	
+	UEnemyAttackManager* AttackManager;
+			
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UHealthComponent* HealthComp;
 	
-	UPROPERTY(EditAnywhere)
-	float Damage;
+	UPROPERTY()
+	AEnemyAIController* AIController;
 	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -36,6 +52,11 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	
+	void ActivateEnemy();
+	
+	// To call at the end of the Death animation
+	void DeactivateEnemy();
 		
 	UFUNCTION()
 	void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -43,7 +64,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool CanAttack();
 	
-	// To call at the end of the animation
+	// To call at the end of the Attack animation
 	UFUNCTION(BlueprintCallable)
 	void AttackFinished();
+		
+	// To call the moment it dies
+	UFUNCTION(BlueprintCallable)
+	void OnDeath();
 };

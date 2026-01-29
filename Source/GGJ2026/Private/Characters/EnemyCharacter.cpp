@@ -3,7 +3,10 @@
 
 #include "Characters/EnemyCharacter.h"
 
+#include "PaperFlipbookComponent.h"
+#include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -15,6 +18,7 @@ AEnemyCharacter::AEnemyCharacter()
 	// Box = CreateDefaultSubobject<UBoxComponent>(FName("Box"));
 	// Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 	
+	AIController = Cast<AEnemyAIController>(Controller);	
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(FName("Health"));
 }
 
@@ -22,18 +26,7 @@ AEnemyCharacter::AEnemyCharacter()
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	AttackManager = GetWorld()->GetSubsystem<UEnemyManager>();
-	
-	if (!AttackManager)
-	{
-		UE_LOG(LogTemp, Error, TEXT("=== COMBAT MANAGER IS NULL ==="));
-		UE_LOG(LogTemp, Error, TEXT("Enemy: %s"), *GetName());
-		UE_LOG(LogTemp, Error, TEXT("World: %s"), *GetWorld()->GetMapName());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Combat Manager found successfully!"));
-	}
+	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 }
 
 // Called every frame
@@ -43,8 +36,46 @@ void AEnemyCharacter::Tick(float DeltaTime)
 
 }
 
+void AEnemyCharacter::ActivateEnemy()
+{
+	// Reset Collisions
+	SetActorEnableCollision(true);
+	
+	// Reset Movement
+	GetCharacterMovement()->GravityScale = 1.0f;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	
+	// Restart Animations
+	
+	// Make Enemy Visible
+	SetActorHiddenInGame(false);
+	MaskSprite->SetVisibility(true);
+	GetRootComponent()->SetVisibility(true);
+	
+	// AI Logic
+	if (AIController) AIController->ActivateEnemyBT();
+}
+
+void AEnemyCharacter::DeactivateEnemy()
+{	
+	GetCharacterMovement()->GravityScale = 0.0f;
+	
+	// Stop Animations
+	
+	// Make Enemy not Visible
+	SetActorHiddenInGame(true);
+	MaskSprite->SetVisibility(false);
+	GetRootComponent()->SetVisibility(false);
+	
+	// Health
+	HealthComp->Reset();
+	
+	// Stop AI Logic
+	if (AIController) AIController->DeactivateEnemyBT();
+}
+
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == UGameplayStatics::GetPlayerPawn(GetWorld(), 0))
 	{
@@ -61,4 +92,17 @@ bool AEnemyCharacter::CanAttack()
 void AEnemyCharacter::AttackFinished()
 {
 	if (AttackManager) AttackManager->ReleaseToken(this);
+}
+
+void AEnemyCharacter::OnDeath()
+{
+	// Deactivate Movement
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->SetMovementMode(MOVE_None);
+	
+	// Deactivate Collisions
+	SetActorEnableCollision(false);
+	
+	// Check if has Pending Token
+	AttackManager->ReleaseToken(this);
 }

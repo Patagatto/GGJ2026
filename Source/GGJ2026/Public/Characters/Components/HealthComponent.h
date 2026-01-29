@@ -32,6 +32,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ApplyDamage(float Damage);
 	
+	UFUNCTION(BlueprintCallable)
+	void Reset();
+	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
