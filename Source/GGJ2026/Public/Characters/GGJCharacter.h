@@ -134,10 +134,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
 	float LungeHalfAngle = 60.0f;
 
-	/** How fast the character moves during the lunge */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
-	float LungeSpeed = 1500.0f;
-
 	/** Distance from target to stop lunging (avoids clipping into enemy) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
 	float LungeStopDistance = 60.0f;
@@ -161,6 +157,10 @@ public:
 	/** Initial burst speed of the roll. Input can still influence movement after the burst. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float RollSpeed = 1200.0f;
+
+	/** Cooldown in seconds between each roll. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
+	float RollCooldown = 1.0f;
 
 	// ========================================================================
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
@@ -228,6 +228,7 @@ protected:
 	FTimerHandle JumpTimerHandle;
 	FTimerHandle InvincibilityTimerHandle;
 	FTimerHandle StunTimerHandle;
+	FTimerHandle RollCooldownTimerHandle;
 	float DefaultBrakingDeceleration;
 
 	/** Flag to track if the jump button was released during the delay */
@@ -235,6 +236,14 @@ protected:
 
 	/** Flag to track if a combo window was active when charging started */
 	bool bPendingCombo = false;
+
+	/** If true, the character cannot roll until the cooldown expires. */
+	bool bIsRollOnCooldown = false;
+
+	// Lunge State
+	bool bIsLunging = false;
+	FVector LungeTargetLocation;
+	float LungeStartTime;
 
 	/** Starts the jump sequence (starts timer or jumps immediately) */
 	void StartJumpSequence();
@@ -274,6 +283,9 @@ protected:
 	
 	/** Executes the roll logic (State change, Physics, Invincibility) */
 	void PerformRoll();
+
+	/** Resets the roll cooldown flag. */
+	void ResetRollCooldown();
 
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
