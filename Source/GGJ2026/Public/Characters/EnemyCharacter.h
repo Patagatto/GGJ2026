@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "AI/EnemyManager.h"
-#include "Components/BoxComponent.h"
 #include "Components/HealthComponent.h"
 #include "GameFramework/Character.h"
 #include "EnemyCharacter.generated.h"
@@ -26,6 +25,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UHealthComponent* HealthComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	class UBoxComponent* HurtboxComponent;
 	
 	UPROPERTY(EditAnywhere)
 	float Damage;

@@ -4,6 +4,7 @@
 #include "Characters/EnemyCharacter.h"
 
 #include "AI/EnemyManager.h"
+#include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -16,6 +17,16 @@ AEnemyCharacter::AEnemyCharacter()
 	// Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 	
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(FName("Health"));
+
+	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
+	HurtboxComponent->SetupAttachment(GetRootComponent());
+	HurtboxComponent->SetCollisionObjectType(ECC_Pawn);
+	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
+	HurtboxComponent->SetGenerateOverlapEvents(true);
+	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
+	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
 }
 
 // Called when the game starts or when spawned

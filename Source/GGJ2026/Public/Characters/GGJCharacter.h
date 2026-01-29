@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PaperZDCharacter.h"
 #include "InputActionValue.h"
+#include "Items/MaskPickup.h"
 #include "GGJCharacter.generated.h"
 
 class UCameraComponent;
@@ -13,7 +14,6 @@ class UInputMappingContext;
 class UInputAction;
 class UBoxComponent;
 class UPaperFlipbookComponent;
-class UPaperFlipbook;
 
 /** 
  * Defines the current high-level action state of the character.
@@ -37,8 +37,6 @@ UCLASS(Abstract, meta = (PrioritizeCategories = "GGJ"))
 class GGJ2026_API AGGJCharacter : public APaperZDCharacter
 {
 	GENERATED_BODY()
-	
-	virtual void Tick(float DeltaSeconds) override;
 
 public:
 	AGGJCharacter(const FObjectInitializer& ObjectInitializer);
@@ -64,6 +62,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UPaperFlipbookComponent* MaskSprite;
 
+	/** Sphere component to detect nearby interactable items like masks. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction", meta = (AllowPrivateAccess = "true"))
+	class USphereComponent* InteractionSphere;
+
 	// ========================================================================
 	// INPUT ASSETS
 	// ========================================================================
@@ -87,6 +89,10 @@ public:
 	/** Roll Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
 	UInputAction* RollAction;
+
+	/** Interact Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Input", meta = (AllowPrivateAccess = "true", DisplayPriority = "0"))
+	UInputAction* InteractAction;
 
 	// ========================================================================
 	// DESIGNER CONFIGURATION (EditAnywhere)
@@ -162,6 +168,34 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float RollCooldown = 1.0f;
 
+	// --- Mask System ---
+
+	/** The maximum duration a mask can be worn. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
+	float MaxMaskDuration = 30.0f;
+
+	/** Amount of time (in seconds) added to the mask duration when hitting an enemy. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
+	float TimeToAddOnHit = 1.0f;
+
+	/** How quickly the mask's drain rate increases over time. Higher value = harder to maintain. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
+	float DrainIncreaseRate = 0.05f;
+
+	// --- Mask System (Visuals) ---
+
+	/** Flipbook asset for the Red Rabbit mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* RedRabbitMaskFlipbook;
+
+	/** Flipbook asset for the Green Bird mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* GreenBirdMaskFlipbook;
+
+	/** Flipbook asset for the Blue Cat mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* BlueCatMaskFlipbook;
+
 	// ========================================================================
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
 	// ========================================================================
@@ -209,8 +243,21 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	float CurrentChargeTime = 0.0f;
 
+	/** The type of mask currently equipped. Exposed for UI. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	EMaskType CurrentMaskType = EMaskType::None;
+
+	/** The remaining duration of the current mask. Exposed for UI. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float CurrentMaskDuration = 0.0f;
+
+	/** The current multiplier for the mask's time drain. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float DrainRateMultiplier = 1.0f;
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
@@ -229,6 +276,7 @@ protected:
 	FTimerHandle InvincibilityTimerHandle;
 	FTimerHandle StunTimerHandle;
 	FTimerHandle RollCooldownTimerHandle;
+	FTimerHandle MaskDurationTimerHandle;
 	float DefaultBrakingDeceleration;
 
 	/** Flag to track if the jump button was released during the delay */
@@ -240,10 +288,17 @@ protected:
 	/** If true, the character cannot roll until the cooldown expires. */
 	bool bIsRollOnCooldown = false;
 
+	/** A reference to the closest mask the player can pick up. */
+	UPROPERTY()
+	AMaskPickup* OverlappingMask = nullptr;
+
 	// Lunge State
 	bool bIsLunging = false;
 	FVector LungeTargetLocation;
 	float LungeStartTime;
+	
+	UPROPERTY()
+	TArray<AActor*> HitActors;
 
 	/** Starts the jump sequence (starts timer or jumps immediately) */
 	void StartJumpSequence();
@@ -287,6 +342,24 @@ protected:
 	/** Resets the roll cooldown flag. */
 	void ResetRollCooldown();
 
+	/** Main interaction function, called by input. */
+	void Interact();
+
+	/** Equips a new mask and starts its timer. */
+	void EquipMask(AMaskPickup* MaskToEquip);
+
+	/** Removes the current mask and its buffs. */
+	void UnequipMask();
+
+	/** Called by a timer to decrease mask duration and increase drain rate. */
+	void UpdateMaskDuration();
+
+	/** Adds time to the current mask's duration, called on enemy hit. */
+	void ExtendMaskDuration();
+
+	void ApplyBuff(EMaskType MaskType);
+	void RemoveBuff(EMaskType MaskType);
+
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
 	void OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -294,6 +367,12 @@ protected:
 	/** Event called when this actor takes damage */
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
+	// Overlap functions for the interaction sphere
+	UFUNCTION()
+	void OnInteractionSphereOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnInteractionSphereOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 public:
 	/** 
 	 * Applies movement logic relative to the camera. 
@@ -327,5 +406,7 @@ public:
 	/** Deactivates the hitbox. To be called via AnimNotify at the end of the strike. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void DeactivateMeleeHitbox();
-
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ActivateMask(FName SocketName);
 };

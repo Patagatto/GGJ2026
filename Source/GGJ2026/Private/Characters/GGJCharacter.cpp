@@ -13,7 +13,10 @@
 #include "TimerManager.h"
 #include "Characters/EnemyCharacter.h"
 #include "Engine/OverlapResult.h"
+#include "Components/SphereComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Items/MaskPickup.h"
+#include "PaperFlipbook.h"
 #include "GameFramework/DamageType.h"
 
 
@@ -99,13 +102,19 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// Hurtbox: Detects damage taken
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
 	HurtboxComponent->SetupAttachment(GetSprite()); // Attach to sprite so it follows visual representation
-	HurtboxComponent->SetBoxExtent(FVector(20.f, 20.f, 40.f));
-	HurtboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hitboxes
+	HurtboxComponent->SetBoxExtent(FVector(20.f, 10.f, 40.f)); // Made it thinner
+	// Set the hurtbox to be of the "Pawn" object type
+	HurtboxComponent->SetCollisionObjectType(ECC_Pawn);
+	// It should generate overlap events but not block anything by default
+	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 
 	MaskSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("MaskSprite"));
 	MaskSprite->SetupAttachment(GetSprite());
 	MaskSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Purely visual
+	// Add a small forward offset to prevent clipping (Z-fighting) with the main sprite.
+	MaskSprite->SetRelativeLocation(FVector(0.0f, 1.0f, 0.0f));
 	
 	// Hitbox: Deals damage
 	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
@@ -113,7 +122,12 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// This ensures the hitbox moves correctly when the sprite is flipped (Scale X = -1).
 	HitboxComponent->SetupAttachment(GetSprite()); 
 	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
-	HitboxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Should be customized to only overlap Enemy Hurtboxes
+	// Set the hitbox to use our custom "PlayerHitbox" channel
+	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel3);
+	// It should ignore everything by default...
+	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	// ...except for Pawns, which it should overlap with.
+	HitboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 
@@ -134,6 +148,14 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	HitStunDuration = 0.4f;
 	KnockbackStrength = 600.0f;
 #pragma endregion
+
+	// --- Interaction Setup ---
+	InteractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionSphere"));
+	InteractionSphere->SetupAttachment(RootComponent);
+	InteractionSphere->SetSphereRadius(100.0f);
+	InteractionSphere->SetCollisionProfileName(TEXT("Trigger"));
+	InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnInteractionSphereOverlapBegin);
+	InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &AGGJCharacter::OnInteractionSphereOverlapEnd);
 }
 
 void AGGJCharacter::BeginPlay()
@@ -158,6 +180,7 @@ void AGGJCharacter::BeginPlay()
 	bJumpStopPending = false;
 	bPendingCombo = false;
 	bIsRollOnCooldown = false;
+	OverlappingMask = nullptr;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -225,6 +248,9 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 		// Roll
 		EnhancedInputComponent->BindAction(RollAction, ETriggerEvent::Started, this, &AGGJCharacter::PerformRoll);
+
+		// Interact
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AGGJCharacter::Interact);
 	}
 }
 
@@ -308,6 +334,9 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 	// Ignore self
 	if (OtherActor == this) return;
 
+	// If this actor has already been hit during this swing, ignore it.
+	if (HitActors.Contains(OtherActor)) return;
+
 	// Check if we hit a Hurtbox (usually you check for a specific Tag or Interface)
 	if (OtherComp && OtherComp->ComponentHasTag(TEXT("Hurtbox")))
 	{
@@ -324,6 +353,12 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
+
+		// If wearing a mask, extend its duration
+		ExtendMaskDuration();
+
+		// Add the actor to the hit list for this swing.
+		HitActors.Add(OtherActor);
 
 		// Debug Log
 		// UE_LOG(LogTemp, Warning, TEXT("Hit %s for %f damage"), *OtherActor->GetName(), DamageToDeal);
@@ -558,6 +593,9 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 	// SnapToTargetNotIncludingScale keeps hitbox scale independent of sprite (avoids distortion).
 	HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 	
+	// Clear the list of actors hit from the previous swing.
+	HitActors.Empty();
+
 	HitboxComponent->SetBoxExtent(Extent);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
@@ -565,6 +603,21 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 void AGGJCharacter::DeactivateMeleeHitbox()
 {
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AGGJCharacter::ActivateMask(FName SocketName)
+{
+	// Safety Check: If socket doesn't exist on current sprite, warn and abort.
+	if (!GetSprite()->DoesSocketExist(SocketName))
+	{
+		return; // Avoid attaching to root by mistake
+	}
+
+	// Move mask to the socket defined in the current Flipbook frame.
+	MaskSprite->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+
+	// Re-apply the offset after attaching to the socket to prevent clipping.
+	MaskSprite->SetRelativeLocation(FVector(0.0f, 1.0f, 0.0f));
 }
 
 #pragma endregion
@@ -766,6 +819,161 @@ void AGGJCharacter::OnRollFinished()
 void AGGJCharacter::ResetRollCooldown()
 {
 	bIsRollOnCooldown = false;
+}
+
+void AGGJCharacter::Interact()
+{
+	// If we have a valid mask to pick up
+	if (OverlappingMask)
+	{
+		EquipMask(OverlappingMask);
+	}
+}
+
+void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
+{
+	if (!MaskToEquip) return;
+
+	// If already wearing a mask, remove the old one first
+	if (CurrentMaskType != EMaskType::None)
+	{
+		UnequipMask();
+	}
+
+	// Set new mask state
+	CurrentMaskType = MaskToEquip->MaskType;
+	CurrentMaskDuration = MaxMaskDuration;
+	DrainRateMultiplier = 1.0f;
+
+	// Apply the corresponding buff
+	ApplyBuff(CurrentMaskType);
+
+	// Start the timer that drains the mask's duration
+	GetWorld()->GetTimerManager().SetTimer(MaskDurationTimerHandle, this, &AGGJCharacter::UpdateMaskDuration, 1.0f, true, 1.0f);
+	
+	// Set the visual representation of the mask
+	UPaperFlipbook* FlipbookToSet = nullptr;
+	switch (CurrentMaskType)
+	{
+		case EMaskType::RedRabbit:
+			FlipbookToSet = RedRabbitMaskFlipbook;
+			break;
+		case EMaskType::GreenBird:
+			FlipbookToSet = GreenBirdMaskFlipbook;
+			break;
+		case EMaskType::BlueCat:
+			FlipbookToSet = BlueCatMaskFlipbook;
+			break;
+		default: break;
+	}
+	MaskSprite->SetFlipbook(FlipbookToSet);
+
+	// Destroy the pickup actor from the world and clear the reference
+	MaskToEquip->Destroy();
+	OverlappingMask = nullptr;
+}
+
+void AGGJCharacter::UnequipMask()
+{
+	if (CurrentMaskType == EMaskType::None) return;
+
+	// Remove the buff
+	RemoveBuff(CurrentMaskType);
+
+	// Reset state
+	CurrentMaskType = EMaskType::None;
+	CurrentMaskDuration = 0.0f;
+	GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
+	MaskSprite->SetFlipbook(nullptr); // Hide the mask by removing its flipbook
+
+	UE_LOG(LogTemp, Warning, TEXT("Mask broke!"));
+}
+
+void AGGJCharacter::UpdateMaskDuration()
+{
+	if (CurrentMaskType == EMaskType::None || ActionState == ECharacterActionState::Dead)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
+		return;
+	}
+
+	// Decrease duration by 1 second, scaled by the current drain multiplier
+	CurrentMaskDuration -= (1.0f * DrainRateMultiplier);
+
+	// Increase the drain rate for the next second, making it harder to maintain
+	DrainRateMultiplier += DrainIncreaseRate;
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Cyan, FString::Printf(TEXT("Mask Duration: %.1f s (Drain Rate: x%.2f)"), CurrentMaskDuration, DrainRateMultiplier));
+	}
+
+	if (CurrentMaskDuration <= 0.0f)
+	{
+		UnequipMask();
+	}
+}
+
+void AGGJCharacter::ExtendMaskDuration()
+{
+	if (CurrentMaskType != EMaskType::None)
+	{
+		CurrentMaskDuration = FMath::Clamp(CurrentMaskDuration + TimeToAddOnHit, 0.0f, MaxMaskDuration);
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(2, 1.5f, FColor::Green, FString::Printf(TEXT("HIT! Mask time extended to %.1f s"), CurrentMaskDuration));
+		}
+	}
+}
+
+void AGGJCharacter::ApplyBuff(EMaskType MaskType)
+{
+	// Placeholder for buff logic
+	switch (MaskType)
+	{
+		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Applied Red Rabbit Buff!")); break;
+		case EMaskType::GreenBird: UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff!")); break;
+		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Applied Blue Cat Buff!"));   break;
+		default: break;
+	}
+}
+
+void AGGJCharacter::RemoveBuff(EMaskType MaskType)
+{
+	// Placeholder for removing buff logic
+	switch (MaskType)
+	{
+		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Removed Red Rabbit Buff.")); break;
+		case EMaskType::GreenBird: UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff.")); break;
+		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Removed Blue Cat Buff."));   break;
+		default: break;
+	}
+}
+
+#pragma endregion
+
+#pragma region Interaction Overlaps
+
+void AGGJCharacter::OnInteractionSphereOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// Check if the overlapped actor is a mask pickup
+	if (AMaskPickup* Mask = Cast<AMaskPickup>(OtherActor))
+	{
+		// Store a reference to it, so we know we can interact
+		OverlappingMask = Mask;
+		// TODO: Show "Interact" UI prompt
+	}
+}
+
+void AGGJCharacter::OnInteractionSphereOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	// If we are no longer overlapping the mask we were targeting, clear the reference
+	if (Cast<AMaskPickup>(OtherActor) == OverlappingMask)
+	{
+		OverlappingMask = nullptr;
+		// TODO: Hide "Interact" UI prompt
+	}
 }
 
 #pragma endregion
