@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AI/EnemyManager.h"
 #include "Components/BoxComponent.h"
 #include "Components/HealthComponent.h"
 #include "GameFramework/Character.h"
@@ -18,8 +19,10 @@ public:
 	AEnemyCharacter();
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	UBoxComponent* Box;
+	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	// UBoxComponent* Box;
+	UPROPERTY()
+	UEnemyManager* AttackManager;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UHealthComponent* HealthComp;
@@ -37,4 +40,10 @@ public:
 	UFUNCTION()
 	void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	UFUNCTION(BlueprintCallable)
+	bool CanAttack();
+	
+	// To call at the end of the animation
+	UFUNCTION(BlueprintCallable)
+	void AttackFinished();
 };

@@ -3,6 +3,7 @@
 
 #include "Characters/EnemyCharacter.h"
 
+#include "AI/EnemyManager.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -11,8 +12,8 @@ AEnemyCharacter::AEnemyCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	
-	Box = CreateDefaultSubobject<UBoxComponent>(FName("Box"));
-	Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
+	// Box = CreateDefaultSubobject<UBoxComponent>(FName("Box"));
+	// Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 	
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(FName("Health"));
 }
@@ -21,7 +22,18 @@ AEnemyCharacter::AEnemyCharacter()
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	AttackManager = GetWorld()->GetSubsystem<UEnemyManager>();
 	
+	if (!AttackManager)
+	{
+		UE_LOG(LogTemp, Error, TEXT("=== COMBAT MANAGER IS NULL ==="));
+		UE_LOG(LogTemp, Error, TEXT("Enemy: %s"), *GetName());
+		UE_LOG(LogTemp, Error, TEXT("World: %s"), *GetWorld()->GetMapName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Combat Manager found successfully!"));
+	}
 }
 
 // Called every frame
@@ -38,4 +50,15 @@ void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 	{
 		if (UHealthComponent* Health = Cast<UHealthComponent>(OtherActor->GetComponentByClass(UHealthComponent::StaticClass()))) Health->ApplyDamage(Damage);
 	}
+}
+
+bool AEnemyCharacter::CanAttack()
+{
+	if (AttackManager) return AttackManager->RequestAttack(this);
+	return false;
+}
+
+void AEnemyCharacter::AttackFinished()
+{
+	if (AttackManager) AttackManager->ReleaseToken(this);
 }
