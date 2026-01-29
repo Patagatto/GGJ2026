@@ -157,6 +157,7 @@ void AGGJCharacter::BeginPlay()
 	CurrentDamageMultiplier = 1.0f;
 	bJumpStopPending = false;
 	bPendingCombo = false;
+	bIsRollOnCooldown = false;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -177,6 +178,13 @@ void AGGJCharacter::BeginPlay()
 void AGGJCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// Handle Lunge movement over time
+	if (bIsLunging)
+	{
+		const float LungeDuration = 0.15f;
+		SetActorLocation(FMath::VInterpTo(GetActorLocation(), LungeTargetLocation, DeltaSeconds, 1.0f / LungeDuration));
+	}
 
 	// Calculate speed and movement state for AnimBP
 	Speed = GetVelocity().Size2D();
@@ -316,15 +324,32 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
+
+		// Debug Log
+		// UE_LOG(LogTemp, Warning, TEXT("Hit %s for %f damage"), *OtherActor->GetName(), DamageToDeal);
 	}
+}
+
+void AGGJCharacter::OnStunFinished()
+{
+	if (ActionState != ECharacterActionState::Dead)
+	{
+		ActionState = ECharacterActionState::None;
+	}
+}
+
+void AGGJCharacter::DisableInvincibility()
+{
+	bIsInvincible = false;
+	// Optional: Stop flashing visual effect here
 }
 
 float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// Call the base class - important for internal engine logic
-	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	// If already dead or invincible, don't take damage
+	// If already dead, rolling, or invincible, don't take damage
 	if (ActionState == ECharacterActionState::Dead || ActionState == ECharacterActionState::Rolling || bIsInvincible)
 	{
 		return 0.0f;
@@ -342,15 +367,16 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 			// 1. Enter Hurt State (Stops movement and attacks)
 			ActionState = ECharacterActionState::Hurt;
 			
-			// 2. Interrupt any ongoing Attack Combo
+			// 2. Interrupt any ongoing Attack Combo or Lunge
 			GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
-			DeactivateMeleeHitbox(); // Ensure hitbox is off
+			DeactivateMeleeHitbox();
 			bPendingCombo = false;
+			bIsLunging = false;
 
 			// 3. Apply Knockback (Push character away from damage source)
 			if (DamageCauser)
 			{
-				FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+				const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
 				LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
 			}
 
@@ -361,11 +387,7 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 			// 5. Set Stun Timer (When to regain control)
 			GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
 		}
-
-		// Debug Log
-		// UE_LOG(LogTemp, Warning, TEXT("Player took %f damage. Health: %f"), ActualDamage, CurrentHealth);
-
-		if (CurrentHealth <= 0.0f)
+		else // CurrentHealth <= 0.0f
 		{
 			// Handle Death
 			ActionState = ECharacterActionState::Dead;
@@ -374,20 +396,6 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	}
 
 	return ActualDamage;
-}
-
-void AGGJCharacter::OnStunFinished()
-{
-	if (ActionState != ECharacterActionState::Dead)
-	{
-		ActionState = ECharacterActionState::None;
-	}
-}
-
-void AGGJCharacter::DisableInvincibility()
-{
-	bIsInvincible = false;
-	// Optional: Stop flashing visual effect here
 }
 
 void AGGJCharacter::Landed(const FHitResult& Hit)
@@ -406,26 +414,39 @@ void AGGJCharacter::Landed(const FHitResult& Hit)
 
 AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 {
-	// If no input, use the direction the character is visually facing
-	if (InputDirection.IsNearlyZero())
+	FVector SearchDirection;
+
+	// If there is significant player input, use that as the search direction.
+	if (InputDirection.SizeSquared() > 0.01f)
 	{
-		InputDirection = LastFacingDirection;
+		SearchDirection = InputDirection.GetSafeNormal();
 	}
-	else
+	// Otherwise, use the visual facing direction of the sprite (Left or Right).
+	else 
 	{
-		// Normalize for safety
-		InputDirection.Normalize();
+		FVector CameraRight = FollowCamera->GetRightVector();
+		CameraRight.Z = 0.0f;
+		CameraRight.Normalize();
+
+		// If Sprite is flipped, it's looking Left relative to the Camera.
+		if (GetSprite()->GetRelativeScale3D().X < 0.0f)
+		{
+			SearchDirection = -CameraRight;
+		}
+		else
+		{
+			SearchDirection = CameraRight;
+		}
 	}
 	
 	FVector StartLoc = GetActorLocation();
 	
-	// Use Sphere Overlap instead of Sweep to find all candidates around us
-	TArray<FOverlapResult> Overlaps;
+	TArray<FOverlapResult> OverlapResults;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
 	GetWorld()->OverlapMultiByChannel(
-		Overlaps,
+		OverlapResults,
 		StartLoc,
 		FQuat::Identity,
 		ECC_Pawn,
@@ -436,26 +457,20 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 	AActor* BestTarget = nullptr;
 	float BestDistanceSq = FLT_MAX;
 	
-	// Convert angle to Cosine for Dot Product (performance optimization)
-	// Example: 45 degrees -> 0.707. If Dot > 0.707, it's inside the cone.
 	float MinDotProduct = FMath::Cos(FMath::DegreesToRadians(LungeHalfAngle));
 
-	for (const FOverlapResult& Overlap : Overlaps)
+	for (const FOverlapResult& Overlap : OverlapResults)
 	{
 		if (AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Overlap.GetActor()))
 		{
-			// 1. Calculate direction to enemy
 			FVector DirToEnemy = (Enemy->GetActorLocation() - StartLoc);
-			float DistSq = DirToEnemy.SizeSquared(); // Use Squared to avoid square roots
+			float DistSq = DirToEnemy.SizeSquared();
 			DirToEnemy.Normalize();
 
-			// 2. Angle Check (Aim Assist Cone)
-			// Compare Input Direction with Enemy Direction
-			float Dot = FVector::DotProduct(InputDirection, DirToEnemy);
+			float Dot = FVector::DotProduct(SearchDirection, DirToEnemy);
 
 			if (Dot >= MinDotProduct)
 			{
-				// 3. Distance Check (Pick the closest valid one)
 				if (DistSq < BestDistanceSq)
 				{
 					BestDistanceSq = DistSq;
@@ -470,98 +485,61 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 
 void AGGJCharacter::PerformLunge(AActor* Target)
 {
-	if (!Target) return;
-	
-	// 1. Calculate Static Distance (Current Position) to estimate duration
-	float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-	
-	float MyRadius = GetCapsuleComponent()->GetScaledCapsuleRadius();
-	float TargetRadius = 30.0f; // Fallback default
-	
-	if (ACharacter* TargetChar = Cast<ACharacter>(Target))
+	if (!Target || bIsLunging) return;
+
+	// --- 1. Determine Final Destination ---
+	// Get the camera's right vector to define the "line" of combat.
+	FVector CameraRight = FollowCamera->GetRightVector();
+	CameraRight.Z = 0.0f;
+	CameraRight.Normalize();
+
+	// Determine if the player is currently on the left or right side of the target
+	const FVector VectorToPlayer = GetActorLocation() - Target->GetActorLocation();
+	const float SideProjection = FVector::DotProduct(VectorToPlayer, CameraRight);
+
+	// Calculate the desired final destination point (left or right of the enemy)
+	FVector DestinationPoint;
+	if (SideProjection >= 0.0f)
 	{
-		TargetRadius = TargetChar->GetCapsuleComponent()->GetScaledCapsuleRadius();
-	}
-
-	// Safety buffer to avoid clipping
-	float DynamicStopDistance = MyRadius + TargetRadius + 10.0f;
-	float ActualStopDistance = FMath::Max(LungeStopDistance, DynamicStopDistance);
-	
-	// Check static distance BEFORE prediction.
-	// If we are already physically close to the target NOW, do not lunge, even if they are running away.
-	// Just rotate towards them and attack in place.
-	// Buffer increased to 25.0f to avoid micro-jitters when already in attack range.
-	if (Distance <= ActualStopDistance + 25.0f)
-	{
-		FVector DirToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
-		if (!DirToTarget.IsNearlyZero())
-		{
-			SetActorRotation(DirToTarget.Rotation());
-		}
-		return;
-	}
-
-	// Estimate duration based on current distance
-	float EstimatedDist = FMath::Max(0.0f, Distance - ActualStopDistance);
-	float LungeDuration = FMath::Clamp(EstimatedDist / LungeSpeed, 0.15f, 0.4f);
-
-	// 2. TARGET PREDICTION
-	// If the enemy is moving, calculate where they will be at the end of the lunge.
-	FVector TargetVelocity = Target->GetVelocity();
-	TargetVelocity.Z = 0.0f; // Ignore vertical movement (e.g. enemy jumping)
-
-	FVector PredictedTargetLoc = Target->GetActorLocation() + (TargetVelocity * LungeDuration);
-
-	// Recalculate direction towards the predicted point
-	FVector DirectionToTarget = (PredictedTargetLoc - GetActorLocation()).GetSafeNormal();
-	DirectionToTarget.Z = 0.0f;
-	
-	// Rotate towards the predicted enemy position
-	SetActorRotation(DirectionToTarget.Rotation());
-
-	// Recalculate distance to PREDICTED point
-	float PredictedDistance = FVector::Dist(GetActorLocation(), PredictedTargetLoc);
-
-	// If we will be close enough to the target (or they run into us), avoid lunge.
-	if (PredictedDistance <= ActualStopDistance + 25.0f) return;
-
-	// --- PHYSICS VELOCITY CALCULATION ON PREDICTED TARGET ---
-	// Aim slightly "inside" the stop distance (Overshoot) to compensate for BrakingDeceleration
-	// which would otherwise make us stop short. Physical collision will stop us at the right spot.
-	// 25.0f is a sufficient margin to ensure contact.
-	float DistanceToTravel = PredictedDistance - (ActualStopDistance - 25.0f);
-	
-	if (DistanceToTravel <= 0.0f) return;
-	
-	// Inverse physics formula for friction: V0 = (d * k) / (1 - exp(-k * t))
-	// This ensures we cover EXACTLY the distance despite friction.
-	float Friction = GetCharacterMovement()->GroundFriction;
-	float RequiredSpeed;
-
-	// Apply friction compensation ONLY if grounded.
-	// If airborne, friction is different or zero.
-	if (GetCharacterMovement()->IsMovingOnGround() && Friction > 0.0f)
-	{
-		float Denom = 1.0f - FMath::Exp(-Friction * LungeDuration);
-		RequiredSpeed = (DistanceToTravel * Friction) / Denom;
+		// Player is on the right, so the destination is the point on the right.
+		DestinationPoint = Target->GetActorLocation() + (CameraRight * LungeStopDistance);
 	}
 	else
 	{
-		RequiredSpeed = DistanceToTravel / LungeDuration;
+		// Player is on the left, so the destination is the point on the left.
+		DestinationPoint = Target->GetActorLocation() - (CameraRight * LungeStopDistance);
 	}
 
-	// Velocity Clamp:
-	// Initial velocity (V0) must be higher than average speed (LungeSpeed) to overcome initial friction.
-	// Allow an initial peak up to double the configured speed to guarantee arrival.
-	// If we limit V0 strictly to LungeSpeed, we will never reach distant targets.
-	float FinalSpeed = FMath::Min(RequiredSpeed, LungeSpeed * 2.0f);
-	
-	FVector LaunchVelocity = DirectionToTarget * FinalSpeed;
+	// --- 2. Check if Lunge is Necessary ---
+	const FVector VectorToDestination = DestinationPoint - GetActorLocation();
+	const float DistanceToDestination = VectorToDestination.Size2D();
 
-	// Apply Launch.
-	// bXYOverride = true replaces current velocity (immediate stop if moving elsewhere)
-	// bZOverride = false maintains current gravity
-	LaunchCharacter(LaunchVelocity, true, false);
+	// If we are already very close to our destination, just rotate and attack.
+	// This is the crucial "deadzone" check to prevent repeated lunges.
+	if (DistanceToDestination <= 20.0f)
+	{
+		const FVector DirToActualTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		if (!DirToActualTarget.IsNearlyZero())
+		{
+			SetActorRotation(DirToActualTarget.Rotation());
+		}
+		return; // Do not lunge
+	}
+
+	// --- 3. Execute Lunge ---
+	// Rotate to face the actual enemy, not the destination point
+	const FVector DirToActualTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+	if (!DirToActualTarget.IsNearlyZero())
+	{
+		SetActorRotation(DirToActualTarget.Rotation());
+	}
+	
+	// Set the lunge state and target location. The Tick function will handle the movement.
+	bIsLunging = true;
+	LungeTargetLocation = DestinationPoint;
+	
+	// Disable physics-based movement during the lunge for full control
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 }
 
 #pragma endregion
@@ -685,10 +663,18 @@ void AGGJCharacter::OnAttackFinished()
 {
 	ActionState = ECharacterActionState::None;
 
+	// If we were lunging, stop it and restore normal movement physics
+	if (bIsLunging)
+	{
+		bIsLunging = false;
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		GetCharacterMovement()->BrakingDecelerationWalking = DefaultBrakingDeceleration;
+	}
+
 	// Start the timer. If the player doesn't attack again within 'ComboWindowTime', the combo resets.
 	GetWorld()->GetTimerManager().SetTimer(ComboTimerHandle, this, &AGGJCharacter::ResetCombo, ComboWindowTime, false);
 }
-
+ 
 void AGGJCharacter::ResetCombo()
 {
 	AttackComboIndex = 0;
@@ -696,11 +682,12 @@ void AGGJCharacter::ResetCombo()
 
 void AGGJCharacter::PerformRoll()
 {
-	// Cannot roll if Dead, Hurt or already Rolling.
+	// Cannot roll if Dead, Hurt, already Rolling, or on cooldown.
 	// Can roll from None, Attacking, Charging (Interrupting them).
 	if (ActionState == ECharacterActionState::Dead || 
 		ActionState == ECharacterActionState::Hurt || 
-		ActionState == ECharacterActionState::Rolling)
+		ActionState == ECharacterActionState::Rolling ||
+		bIsRollOnCooldown)
 	{
 		return;
 	}
@@ -713,6 +700,7 @@ void AGGJCharacter::PerformRoll()
 		bPendingCombo = false;
 		CurrentChargeTime = 0.0f;
 		DeactivateMeleeHitbox();
+		bIsLunging = false; // Stop any active lunge
 	}
 
 	// Determine Direction
@@ -722,8 +710,22 @@ void AGGJCharacter::PerformRoll()
 	// If the input is very small (magnitude < 0.1), treat it as zero so we use the character's facing direction instead.
 	if (RollDirection.SizeSquared() < 0.01f)
 	{
-		// If standing still, roll in the direction we are facing visually
-		RollDirection = LastFacingDirection;
+		// If standing still, roll in the direction we are facing visually.
+		// Since the sprite is 2D and flips Left/Right, we use the Camera's Right vector.
+		
+		FVector CameraRight = FollowCamera->GetRightVector();
+		CameraRight.Z = 0.0f; // Ensure planar movement
+		CameraRight.Normalize();
+
+		// If Sprite is flipped (Scale X < 0), it means we are looking Left relative to Camera.
+		if (GetSprite()->GetRelativeScale3D().X < 0.0f)
+		{
+			RollDirection = -CameraRight;
+		}
+		else
+		{
+			RollDirection = CameraRight;
+		}
 	}
 	else
 	{
@@ -738,10 +740,15 @@ void AGGJCharacter::PerformRoll()
 	// We disable braking during the roll so the Launch impulse carries us smoothly
 	// for the entire duration without needing player input.
 	GetCharacterMovement()->BrakingDecelerationWalking = 0.0f;
-	LaunchCharacter(RollDirection * RollSpeed, true, false);
+	GetCharacterMovement()->GroundFriction = 2.0f; // Lower friction to slide farther
+	LaunchCharacter(RollDirection * RollSpeed, true, false); // bXYOverride, bZOverride
 
 	// Set State (Invincibility is handled in TakeDamage by checking this state)
 	ActionState = ECharacterActionState::Rolling;
+
+	// Start cooldown
+	bIsRollOnCooldown = true;
+	GetWorld()->GetTimerManager().SetTimer(RollCooldownTimerHandle, this, &AGGJCharacter::ResetRollCooldown, RollCooldown, false);
 }
 
 void AGGJCharacter::OnRollFinished()
@@ -751,8 +758,14 @@ void AGGJCharacter::OnRollFinished()
 		ActionState = ECharacterActionState::None;
 		
 		// Restore normal braking so we stop when releasing keys
+		GetCharacterMovement()->GroundFriction = 3.0f; // Restore original friction
 		GetCharacterMovement()->BrakingDecelerationWalking = DefaultBrakingDeceleration;
 	}
+}
+
+void AGGJCharacter::ResetRollCooldown()
+{
+	bIsRollOnCooldown = false;
 }
 
 #pragma endregion
