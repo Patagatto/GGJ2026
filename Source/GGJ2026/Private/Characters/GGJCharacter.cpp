@@ -127,7 +127,8 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// It should ignore everything by default...
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	// ...except for Pawns, which it should overlap with.
-	HitboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	// We change this to overlap with the Enemy's Hurtbox channel, which is ECC_GameTraceChannel4
+	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 
@@ -170,9 +171,12 @@ void AGGJCharacter::BeginPlay()
 
 	// Save the default braking deceleration (drag) so we can restore it after rolling
 	DefaultBrakingDeceleration = GetCharacterMovement()->BrakingDecelerationWalking;
+	// Save the default roll cooldown and walk speed so we can restore them after buffs expire
+	DefaultRollCooldown = RollCooldown;
+	DefaultMaxWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
 
 	// Initialize Health
-	CurrentHealth = 1;  //MaxHealth;
+	CurrentHealth = 50;  //MaxHealth;
 
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
@@ -181,6 +185,10 @@ void AGGJCharacter::BeginPlay()
 	bJumpStopPending = false;
 	bPendingCombo = false;
 	bIsRollOnCooldown = false;
+	bExtendsDurationOnHit = false;
+	bHasDamageReduction = false;
+	bIsImmuneToKnockdown = false;
+	bHasLifesteal = false;
 	OverlappingMask = nullptr;
 
 	// Add Input Mapping Context
@@ -221,8 +229,7 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	// DEBUG: Print values to screen to verify C++ is working
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
-		GEngine->AddOnScreenDebugMessage(0, 0.0f, FColor::Red, FString::Printf(TEXT("TimeToAddOnHit:  %f s"), TimeToAddOnHit));
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | MaxSpeed: %.0f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, GetCharacterMovement()->MaxWalkSpeed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
 		GEngine->AddOnScreenDebugMessage(3, 0.0f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f"), CurrentHealth));
 
 	}
@@ -359,7 +366,16 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
 
 		// If wearing a mask, extend its duration
-		ExtendMaskDuration();
+		if (bExtendsDurationOnHit)
+		{
+			ExtendMaskDuration();
+		}
+
+		// If Red Rabbit mask is active (Lifesteal), heal the player
+		if (bHasLifesteal)
+		{
+			CurrentHealth = FMath::Clamp(CurrentHealth + (DamageToDeal * RedRabbit_LifestealAmount), 0.0f, MaxHealth);
+		}
 
 		// Add the actor to the hit list for this swing.
 		HitActors.Add(OtherActor);
@@ -408,7 +424,7 @@ void AGGJCharacter::DisableInvincibility()
 float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// Call the base class - important for internal engine logic
-	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
 	// If already dead, rolling, or invincible, don't take damage
 	if (ActionState == ECharacterActionState::Dead || ActionState == ECharacterActionState::Rolling ||
@@ -417,6 +433,12 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		bIsInvincible)
 	{
 		return 0.0f;
+	}
+
+	// Apply Damage Reduction if the buff is active
+	if (bHasDamageReduction)
+	{
+		ActualDamage *= (1.0f - GreenBird_DamageReductionAmount);
 	}
 
 	if (ActualDamage > 0.0f)
@@ -435,7 +457,7 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 
 			CurrentHitCount++;
 
-			if (CurrentHitCount >= HitsUntilKnockdown)
+			if (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown)
 			{
 				// --- KNOCKDOWN ---
 				CurrentHitCount = 0;
@@ -983,7 +1005,7 @@ void AGGJCharacter::ExtendMaskDuration()
 {
 	if (CurrentMaskType != EMaskType::None)
 	{
-		CurrentMaskDuration = FMath::Clamp(CurrentMaskDuration + TimeToAddOnHit, 0.0f, MaxMaskDuration);
+		CurrentMaskDuration = FMath::Clamp(CurrentMaskDuration + RedRabbit_TimeToAddOnHit, 0.0f, MaxMaskDuration);
 
 		if (GEngine)
 		{
@@ -997,15 +1019,21 @@ void AGGJCharacter::ApplyBuff(EMaskType MaskType)
 	// Placeholder for buff logic
 	switch (MaskType)
 	{
-		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Applied Red Rabbit Buff!")); break;
-		case EMaskType::GreenBird: 
-		
-		UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff!")); 
-		TimeToAddOnHit += MaskUsageBuff;
-		GetWorld()->GetTimerManager().SetTimer(LifeRegenerationTimerHandle, this, &AGGJCharacter::ApplyLifeRegeneration, 1.0f, true, 1.0f);
-		break;
-		
-		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Applied Blue Cat Buff!"));   break;
+		case EMaskType::RedRabbit:
+			bHasLifesteal = true;
+			bExtendsDurationOnHit = true;
+			UE_LOG(LogTemp, Warning, TEXT("Applied Red Rabbit Buff! Lifesteal and Mask Extension on hit enabled."));
+			break;
+		case EMaskType::GreenBird:
+			bIsImmuneToKnockdown = true;
+			bHasDamageReduction = true;
+			UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff! Knockdown immunity and Damage Reduction enabled."));
+			break;
+		case EMaskType::BlueCat:
+			RollCooldown = BlueCat_RollCooldown;
+			GetCharacterMovement()->MaxWalkSpeed = BlueCat_MovementSpeed;
+			UE_LOG(LogTemp, Warning, TEXT("Applied Blue Cat Buff! Roll cooldown reduced and movement speed increased."));
+			break;
 		default: break;
 	}
 }
@@ -1015,27 +1043,22 @@ void AGGJCharacter::RemoveBuff(EMaskType MaskType)
 	// Placeholder for removing buff logic
 	switch (MaskType)
 	{
-		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Removed Red Rabbit Buff.")); break;
+		case EMaskType::RedRabbit:
+			bHasLifesteal = false;
+			bExtendsDurationOnHit = false;
+			UE_LOG(LogTemp, Warning, TEXT("Removed Red Rabbit Buff."));
+			break;
 		case EMaskType::GreenBird:
-		
-		UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff.")); 
-		TimeToAddOnHit -= MaskUsageBuff;
-		GetWorld()->GetTimerManager().ClearTimer(LifeRegenerationTimerHandle);
-		break;
-		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Removed Blue Cat Buff."));   break;
+			bIsImmuneToKnockdown = false;
+			bHasDamageReduction = false;
+			UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff."));
+			break;
+		case EMaskType::BlueCat:
+			RollCooldown = DefaultRollCooldown;
+			GetCharacterMovement()->MaxWalkSpeed = DefaultMaxWalkSpeed;
+			UE_LOG(LogTemp, Warning, TEXT("Removed Blue Cat Buff."));
+			break;
 		default: break;
-	}
-}
-
-void AGGJCharacter::ApplyLifeRegeneration()
-{
-	if (CurrentHealth<MaxHealth)
-	{
-		CurrentHealth += 1 * LifeRegenMultiplier;
-	}
-	else
-	{
-		CurrentHealth = MaxHealth;
 	}
 }
 
