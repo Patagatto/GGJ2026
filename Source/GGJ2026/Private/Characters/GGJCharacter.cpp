@@ -377,6 +377,28 @@ void AGGJCharacter::OnStunFinished()
 	}
 }
 
+void AGGJCharacter::OnGroundedTimerFinished()
+{
+	if (ActionState == ECharacterActionState::Grounded)
+	{
+		ActionState = ECharacterActionState::GettingUp;
+	}
+}
+
+void AGGJCharacter::ResetHitCount()
+{
+	CurrentHitCount = 0;
+}
+
+void AGGJCharacter::OnGetUpFinished()
+{
+	if (ActionState == ECharacterActionState::GettingUp)
+	{
+		ActionState = ECharacterActionState::None;
+		DisableInvincibility();
+	}
+}
+
 void AGGJCharacter::DisableInvincibility()
 {
 	bIsInvincible = false;
@@ -389,7 +411,10 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
 	// If already dead, rolling, or invincible, don't take damage
-	if (ActionState == ECharacterActionState::Dead || ActionState == ECharacterActionState::Rolling || bIsInvincible)
+	if (ActionState == ECharacterActionState::Dead || ActionState == ECharacterActionState::Rolling ||
+		ActionState == ECharacterActionState::KnockedDown || ActionState == ECharacterActionState::Grounded ||
+		ActionState == ECharacterActionState::GettingUp ||
+		bIsInvincible)
 	{
 		return 0.0f;
 	}
@@ -402,35 +427,63 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		if (CurrentHealth > 0.0f)
 		{
 			// --- HIT REACTION LOGIC ---
-			
-			// 1. Enter Hurt State (Stops movement and attacks)
-			ActionState = ECharacterActionState::Hurt;
-			
-			// 2. Interrupt any ongoing Attack Combo or Lunge
+			// Interrupt any ongoing Attack Combo or Lunge
 			GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 			DeactivateMeleeHitbox();
 			bPendingCombo = false;
 			bIsLunging = false;
 
-			// 3. Apply Knockback (Push character away from damage source)
-			if (DamageCauser)
+			CurrentHitCount++;
+
+			if (CurrentHitCount >= HitsUntilKnockdown)
 			{
-				const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
-				LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
+				// --- KNOCKDOWN ---
+				CurrentHitCount = 0;
+				ActionState = ECharacterActionState::KnockedDown;
+
+				// We've been knocked down, so the hit combo is over. Clear the reset timer.
+				GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
+
+				// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
+				bIsInvincible = true;
+
+				if (DamageCauser)
+				{
+					const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+					const FVector FaceDir = -KnockbackDir;
+
+					// Force visual facing direction towards the enemy
+					LastFacingDirection = FaceDir;
+					UpdateAnimationDirection();
+
+					// Get pushed away from the enemy
+					LaunchCharacter(KnockbackDir * KnockdownPushStrength, true, true);
+				}
 			}
+			else
+			{
+				// --- NORMAL HURT ---
+				ActionState = ECharacterActionState::Hurt;
 
-			// 4. Set Invincibility (I-Frames)
-			bIsInvincible = true;
-			GetWorld()->GetTimerManager().SetTimer(InvincibilityTimerHandle, this, &AGGJCharacter::DisableInvincibility, InvincibilityDuration, false);
+				// Apply Knockback
+				if (DamageCauser)
+				{
+					const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+					LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
+				}
 
-			// 5. Set Stun Timer (When to regain control)
-			GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
+				// Set Stun Timer (When to regain control)
+				GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
+
+				// Start a timer to reset the hit counter if we don't get hit again soon.
+				GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
+				GetWorld()->GetTimerManager().SetTimer(HitCountResetTimerHandle, this, &AGGJCharacter::ResetHitCount, HitCountResetTime, false);
+			}
 		}
 		else // CurrentHealth <= 0.0f
 		{
 			// Handle Death
 			ActionState = ECharacterActionState::Dead;
-			// TODO: Disable Input, Play Death Animation, Show Game Over Screen
 		}
 	}
 
@@ -441,10 +494,18 @@ void AGGJCharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
 
-	// Reset combo index and cancel any pending combo timer when landing
-	AttackComboIndex = 0;
-	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
-	bPendingCombo = false;
+	if (ActionState == ECharacterActionState::KnockedDown)
+	{
+		ActionState = ECharacterActionState::Grounded;
+		GetWorld()->GetTimerManager().SetTimer(GroundedTimerHandle, this, &AGGJCharacter::OnGroundedTimerFinished, GroundedTime, false);
+	}
+	else
+	{
+		// Reset combo index and cancel any pending combo timer when landing from a normal jump
+		AttackComboIndex = 0;
+		GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+		bPendingCombo = false;
+	}
 }
 
 #pragma endregion

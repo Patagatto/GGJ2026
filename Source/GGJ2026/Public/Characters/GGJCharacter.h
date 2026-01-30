@@ -27,6 +27,9 @@ enum class ECharacterActionState : uint8
 	Rolling		UMETA(DisplayName = "Rolling"),
 	Hurt		UMETA(DisplayName = "Hurt"),
 	Charging	UMETA(DisplayName = "Charging"),
+	KnockedDown	UMETA(DisplayName = "KnockedDown"),
+	Grounded	UMETA(DisplayName = "Grounded"),
+	GettingUp	UMETA(DisplayName = "GettingUp"),
 	Dead		UMETA(DisplayName = "Dead")
 };
 
@@ -115,6 +118,22 @@ public:
 	/** Strength of the knockback when hit */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float KnockbackStrength = 600.0f;
+
+	/** Number of consecutive hits the character can take before being knocked down. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
+	int32 HitsUntilKnockdown = 3;
+
+	/** The force of the push when knocked down. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
+	float KnockdownPushStrength = 1200.0f;
+
+	/** Time in seconds the character stays on the ground after being knocked down. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
+	float GroundedTime = 2.0f;
+
+	/** Time in seconds without being hit before the knockdown hit counter resets. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
+	float HitCountResetTime = 2.0f;
 
 	// --- Combat (General) ---
 
@@ -247,6 +266,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	float CurrentHealth;
 
+	/** Number of hits taken in a row. Resets after recovering or being knocked down. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	int32 CurrentHitCount = 0;
+
 	/** Current charge duration (for AnimBP or UI) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	float CurrentChargeTime = 0.0f;
@@ -285,6 +308,9 @@ protected:
 	FTimerHandle StunTimerHandle;
 	FTimerHandle RollCooldownTimerHandle;
 	FTimerHandle MaskDurationTimerHandle;
+	FTimerHandle HitCountResetTimerHandle;
+	FTimerHandle GetUpTimerHandle;
+	FTimerHandle GroundedTimerHandle;
 	FTimerHandle LifeRegenerationTimerHandle;
 	float DefaultBrakingDeceleration;
 
@@ -326,6 +352,12 @@ protected:
 
 	/** Called when the stun duration ends to return to normal state */
 	void OnStunFinished();
+	/** Called when the grounded duration ends to start getting up */
+	void OnGroundedTimerFinished();
+
+	/** Called by a timer to reset the consecutive hit counter. */
+	void ResetHitCount();
+
 	void DisableInvincibility();
 	
 	/** 
@@ -403,6 +435,10 @@ public:
 	/** Called via AnimNotify when roll animation ends */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnRollFinished();
+	
+	/** Call this via AnimNotify (PaperZD) when the get up animation is finished. */
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void OnGetUpFinished();
 
 	/** 
 	 * Activates the combat hitbox.
