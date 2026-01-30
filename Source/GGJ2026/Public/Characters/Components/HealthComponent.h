@@ -23,12 +23,16 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	float CurrentHealth;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsDead;
-	
+		
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool IsHit;
+	
 	UFUNCTION(BlueprintCallable)
 	void ApplyDamage(float Damage);
 	

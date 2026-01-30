@@ -43,8 +43,6 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
-	HurtboxComponent->SetVisibility(true);
-	HurtboxComponent->SetHiddenInGame(false);
 }
 
 // Called when the game starts or when spawned
@@ -130,13 +128,21 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 
 bool AEnemyCharacter::CanAttack()
 {
-	if (AttackManager) return AttackManager->RequestAttack(this);
-	return false;
+	if (AttackManager)
+	{
+		IsAttacking = AttackManager->RequestAttack(this);
+	}
+	
+	return IsAttacking;
 }
 
 void AEnemyCharacter::AttackFinished()
 {
-	if (AttackManager) AttackManager->ReleaseToken(this);
+	if (AttackManager)
+	{
+		IsAttacking = false;
+		AttackManager->ReleaseToken(this);
+	}
 }
 
 void AEnemyCharacter::OnDeath()
