@@ -63,7 +63,7 @@ void UEnemySpawnerManager::InitSpawn()
 			for (int32 j = 0; j < EnemiesInSpawner; ++j)
 			{
 				AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
-				Enemy->SpawnLocation = Spawners[i]->GetActorLocation();
+				Enemy->SpawnLocation = Cast<AEnemySpawner>(Spawners[i])->GetSpawnLocation();
 				Enemy->SetActorLocation(Enemy->SpawnLocation);
 				Enemies.Add(Enemy);				
 			}

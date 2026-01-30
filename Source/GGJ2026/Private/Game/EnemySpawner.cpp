@@ -3,6 +3,8 @@
 
 #include "Game/EnemySpawner.h"
 
+#include "Kismet/KismetMathLibrary.h"
+
 // Sets default values
 AEnemySpawner::AEnemySpawner()
 {
@@ -14,6 +16,13 @@ AEnemySpawner::AEnemySpawner()
 void AEnemySpawner::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+FVector AEnemySpawner::GetSpawnLocation()
+{
+	FVector RandomLocation = UKismetMathLibrary::RandomPointInBoundingBox(GetActorLocation(), FVector(BoxHalfSize, BoxHalfSize, BoxHalfSize));
+	RandomLocation.Z = GetActorLocation().Z;
+	return RandomLocation;
 }
 
 // Called every frame

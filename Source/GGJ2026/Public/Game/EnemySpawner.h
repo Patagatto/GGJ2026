@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/BoxComponent.h"
 #include "GameFramework/Actor.h"
 #include "EnemySpawner.generated.h"
 
@@ -12,6 +13,9 @@ class GGJ2026_API AEnemySpawner : public AActor
 	GENERATED_BODY()
 	
 public:	
+	UPROPERTY(EditAnywhere)
+	float BoxHalfSize;
+		
 	// Sets default values for this actor's properties
 	AEnemySpawner();
 
@@ -20,6 +24,8 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	FVector GetSpawnLocation();
+	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 

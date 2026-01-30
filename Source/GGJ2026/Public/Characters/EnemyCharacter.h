@@ -19,7 +19,7 @@ public:
 	// Sets default values for this character's properties
 	AEnemyCharacter(const FObjectInitializer& ObjectInitializer);
 
-protected:
+protected:	
 	UPROPERTY(EditAnywhere)
 	float Damage;
 		
@@ -47,6 +47,9 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool IsAttacking = false;
+		
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FVector SpawnLocation;
 	

@@ -18,11 +18,6 @@ void AEnemyAIController::BeginPlay()
 void AEnemyAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	
-	// if (AIBehaviorTree)
-	// {
-	// 	RunBehaviorTree(AIBehaviorTree);
-	// }
 }
 
 void AEnemyAIController::ActivateEnemyBT()
