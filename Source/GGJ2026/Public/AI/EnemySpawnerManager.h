@@ -17,13 +17,16 @@ class GGJ2026_API UEnemySpawnerManager : public UWorldSubsystem
 	
 protected:
 	UPROPERTY()
-	int32 MaxEnemies = 50;
+	int32 MaxEnemies = 40;
 	
 	UPROPERTY()
-	int32 MaxActiveEnemies = 30;
+	int32 MaxActiveEnemies = 20;
 	
 	UPROPERTY(EditAnywhere)
-	float SpawnRate = 2.0f;
+	float SpawnRate = 5.0f;
+	
+	UPROPERTY(EditAnywhere)
+	UClass* EnemyClass;
 	
 	FTimerHandle SpawnTimer;
 		
@@ -45,10 +48,16 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetSpawnRate(float NewRate);
 	
+	UFUNCTION(BlueprintCallable)
+	void SetEnemyClass(UClass* NewClass);
+	
 	void AddEnemyToPool(AEnemyCharacter* Enemy);
 	
 	UFUNCTION(BlueprintCallable)
 	void InitSpawn();
+		
+	UFUNCTION(BlueprintCallable)
+	void SetSpawnTimer();
 	
 	void SpawnEnemy();
 	

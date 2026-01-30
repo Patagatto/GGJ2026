@@ -33,6 +33,9 @@ public:
 	void ApplyDamage(float Damage);
 	
 	UFUNCTION(BlueprintCallable)
+	bool IsActorDead() const;
+	
+	UFUNCTION(BlueprintCallable)
 	void Reset();
 	
 	// Called every frame
