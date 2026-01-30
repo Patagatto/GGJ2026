@@ -3,6 +3,7 @@
 
 #include "AI/EnemySpawnerManager.h"
 
+#include "Game/EnemySpawner.h"
 #include "Kismet/GameplayStatics.h"
 
 void UEnemySpawnerManager::Initialize(FSubsystemCollectionBase& Collection)
@@ -30,15 +31,59 @@ void UEnemySpawnerManager::SetSpawnRate(float NewRate)
 	SpawnRate = NewRate;
 }
 
+void UEnemySpawnerManager::SetEnemyClass(UClass* NewClass)
+{
+	EnemyClass = NewClass;
+}
+
 void UEnemySpawnerManager::AddEnemyToPool(AEnemyCharacter* Enemy)
 {
 	if (Enemy)
 	{
 		EnemyPool.Enqueue(Enemy);
 	}
+	
 }
 
 void UEnemySpawnerManager::InitSpawn()
+{
+	TArray<AActor*> Spawners;
+	TArray<AEnemyCharacter*> Enemies;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AEnemySpawner::StaticClass(), Spawners);
+	
+	if (EnemyClass && Spawners.Num() > 0)
+	{
+		int32 BaseAmount = MaxEnemies / Spawners.Num();
+		int32 Extra = MaxEnemies % Spawners.Num();
+
+		for (int32 i = 0; i < Spawners.Num(); ++i)
+		{
+			int32 EnemiesInSpawner = BaseAmount + (i < Extra ? 1 : 0);
+    
+			for (int32 j = 0; j < EnemiesInSpawner; ++j)
+			{
+				AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
+				Enemy->SpawnLocation = Spawners[i]->GetActorLocation();
+				Enemy->SetActorLocation(Enemy->SpawnLocation);
+				Enemies.Add(Enemy);				
+			}
+		}
+		
+		int32 LastIndex = Enemies.Num() - 1;
+		for (int32 i = 0; i <= LastIndex; ++i)
+		{
+			int32 Index = FMath::RandRange(i, LastIndex);
+			if (i != Index) Enemies.Swap(i, Index);
+		}
+
+		for (AEnemyCharacter* Enemy : Enemies)
+		{
+			EnemyPool.Enqueue(Enemy);
+		}
+	}
+}
+
+void UEnemySpawnerManager::SetSpawnTimer()
 {
 	GetWorld()->GetTimerManager().SetTimer(SpawnTimer, this, &UEnemySpawnerManager::SpawnEnemy, SpawnRate, true);
 }

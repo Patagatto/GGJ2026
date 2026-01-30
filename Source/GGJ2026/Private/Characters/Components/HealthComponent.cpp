@@ -29,6 +29,11 @@ void UHealthComponent::ApplyDamage(float Damage)
 	else if (CurrentHealth > MaxHealth) CurrentHealth = MaxHealth;
 }
 
+bool UHealthComponent::IsActorDead() const
+{
+	return IsDead;
+}
+
 void UHealthComponent::Reset()
 {
 	CurrentHealth = MaxHealth;

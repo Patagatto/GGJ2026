@@ -15,19 +15,7 @@ public:
 	// Sets default values for this actor's properties
 	AEnemySpawner();
 
-protected:
-	UPROPERTY(EditAnywhere)
-	int32 MaxEnemies;
-	
-	UPROPERTY(EditAnywhere)
-	int32 MaxActiveEnemies;
-	
-	UPROPERTY(EditAnywhere)
-	UClass* EnemyClass;
-	
-	UPROPERTY(EditAnywhere)
-	TArray<FVector> Locations;
-		
+protected:		
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 

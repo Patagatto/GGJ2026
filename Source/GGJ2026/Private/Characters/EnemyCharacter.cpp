@@ -11,25 +11,40 @@
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
-AEnemyCharacter::AEnemyCharacter()
+AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	
-	// Box = CreateDefaultSubobject<UBoxComponent>(FName("Box"));
-	// Box->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
-		
+	// --- Character Rotation Setup ---
+	// Don't rotate when the controller rotates. Let that just affect the camera.
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+			
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(FName("Health"));
+	
+	// --- Sprite Component Setup ---
+	GetSprite()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetSprite()->SetCastShadow(true);
+
+	// IMPORTANT: Capsule rotates for movement logic, but Sprite must stay fixed (Billboard)
+	// to face the camera. PaperZD handles the visual direction via animation.
+	GetSprite()->SetUsingAbsoluteRotation(true);
+	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
-	HurtboxComponent->SetupAttachment(GetRootComponent());
-	HurtboxComponent->SetCollisionObjectType(ECC_Pawn);
+	HurtboxComponent->SetupAttachment(GetSprite());
+	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
+	HurtboxComponent->SetCollisionObjectType(ECC_GameTraceChannel4);
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
-	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
+	HurtboxComponent->SetVisibility(true);
+	HurtboxComponent->SetHiddenInGame(false);
 }
 
 // Called when the game starts or when spawned
@@ -37,10 +52,11 @@ void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	SetActorEnableCollision(false);
+	//SetActorEnableCollision(false);
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);
+	
 }
 
 // Called every frame
@@ -80,10 +96,11 @@ void AEnemyCharacter::DeactivateEnemy()
 	GetSprite()->SetVisibility(false);
 	
 	// Health
-	if (HealthComp) HealthComp->Reset();
+	HealthComp->Reset();
 	
 	// Stop AI Logic
 	if (AIController) AIController->DeactivateEnemyBT();
+	SetActorLocation(SpawnLocation);
 }
 
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -93,6 +110,22 @@ void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 	{
 		if (UHealthComponent* Health = Cast<UHealthComponent>(OtherActor->GetComponentByClass(UHealthComponent::StaticClass()))) Health->ApplyDamage(Damage);
 	}
+}
+
+float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
+	class AController* EventInstigator, AActor* DamageCauser)
+{
+	if (DamageCauser == UGameplayStatics::GetPlayerPawn(GetWorld(), 0))
+	{
+		HealthComp->ApplyDamage(DamageAmount);
+		if(HealthComp->IsActorDead())
+		{
+			OnDeath();
+			DeactivateEnemy();
+		}
+	}
+	
+	return DamageAmount;
 }
 
 bool AEnemyCharacter::CanAttack()
@@ -116,5 +149,5 @@ void AEnemyCharacter::OnDeath()
 	SetActorEnableCollision(false);
 	
 	// Check if has Pending Token
-	AttackManager->ReleaseToken(this);
+	if (AttackManager) AttackManager->ReleaseToken(this);
 }
