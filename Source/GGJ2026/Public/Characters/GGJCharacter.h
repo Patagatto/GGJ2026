@@ -195,6 +195,14 @@ public:
 	/** Flipbook asset for the Blue Cat mask. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
 	class UPaperFlipbook* BlueCatMaskFlipbook;
+	
+	// --- Mask System  (Buffs) ---
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayPriority = "0"))
+	float LifeRegenMultiplier = 1.2;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayPriority = "0"))
+	float MaskUsageBuff = 0.5;
 
 	// ========================================================================
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
@@ -277,6 +285,7 @@ protected:
 	FTimerHandle StunTimerHandle;
 	FTimerHandle RollCooldownTimerHandle;
 	FTimerHandle MaskDurationTimerHandle;
+	FTimerHandle LifeRegenerationTimerHandle;
 	float DefaultBrakingDeceleration;
 
 	/** Flag to track if the jump button was released during the delay */
@@ -359,6 +368,8 @@ protected:
 
 	void ApplyBuff(EMaskType MaskType);
 	void RemoveBuff(EMaskType MaskType);
+	
+	void ApplyLifeRegeneration();
 
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()

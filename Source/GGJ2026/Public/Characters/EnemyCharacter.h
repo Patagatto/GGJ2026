@@ -39,9 +39,6 @@ protected:
 			
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UHealthComponent* HealthComp;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	class UBoxComponent* HurtboxComponent;
 	
 	UPROPERTY()
 	AEnemyAIController* AIController;

@@ -147,8 +147,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	InvincibilityDuration = 1.0f;
 	HitStunDuration = 0.4f;
 	KnockbackStrength = 600.0f;
-#pragma endregion
-
+	
 	// --- Interaction Setup ---
 	InteractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionSphere"));
 	InteractionSphere->SetupAttachment(RootComponent);
@@ -156,6 +155,8 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	InteractionSphere->SetCollisionProfileName(TEXT("Trigger"));
 	InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnInteractionSphereOverlapBegin);
 	InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &AGGJCharacter::OnInteractionSphereOverlapEnd);
+	
+#pragma endregion
 }
 
 void AGGJCharacter::BeginPlay()
@@ -171,7 +172,7 @@ void AGGJCharacter::BeginPlay()
 	DefaultBrakingDeceleration = GetCharacterMovement()->BrakingDecelerationWalking;
 
 	// Initialize Health
-	CurrentHealth = MaxHealth;
+	CurrentHealth = 1;  //MaxHealth;
 
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
@@ -221,6 +222,8 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
+		GEngine->AddOnScreenDebugMessage(0, 0.0f, FColor::Red, FString::Printf(TEXT("TimeToAddOnHit:  %f s"), TimeToAddOnHit));
+
 	}
 
 	UpdateAnimationDirection();
@@ -933,7 +936,13 @@ void AGGJCharacter::ApplyBuff(EMaskType MaskType)
 	switch (MaskType)
 	{
 		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Applied Red Rabbit Buff!")); break;
-		case EMaskType::GreenBird: UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff!")); break;
+		case EMaskType::GreenBird: 
+		
+		UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff!")); 
+		TimeToAddOnHit += MaskUsageBuff;
+		GetWorld()->GetTimerManager().SetTimer(LifeRegenerationTimerHandle, this, &AGGJCharacter::ApplyLifeRegeneration, 1.0f, true, 1.0f);
+		break;
+		
 		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Applied Blue Cat Buff!"));   break;
 		default: break;
 	}
@@ -945,10 +954,21 @@ void AGGJCharacter::RemoveBuff(EMaskType MaskType)
 	switch (MaskType)
 	{
 		case EMaskType::RedRabbit: UE_LOG(LogTemp, Warning, TEXT("Removed Red Rabbit Buff.")); break;
-		case EMaskType::GreenBird: UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff.")); break;
+		case EMaskType::GreenBird:
+		
+		UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff.")); 
+		TimeToAddOnHit -= MaskUsageBuff;
+		GetWorld()->GetTimerManager().ClearTimer(LifeRegenerationTimerHandle);
+		break;
 		case EMaskType::BlueCat:   UE_LOG(LogTemp, Warning, TEXT("Removed Blue Cat Buff."));   break;
 		default: break;
 	}
+}
+
+void AGGJCharacter::ApplyLifeRegeneration()
+{
+	CurrentHealth += 1 * LifeRegenMultiplier;
+	GEngine->AddOnScreenDebugMessage(3, 1.5f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f s"), CurrentHealth));
 }
 
 #pragma endregion
