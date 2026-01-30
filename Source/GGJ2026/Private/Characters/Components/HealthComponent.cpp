@@ -24,6 +24,7 @@ void UHealthComponent::BeginPlay()
 void UHealthComponent::ApplyDamage(float Damage)
 {
 	CurrentHealth -= Damage;
+	IsHit = true;
 	
 	if (CurrentHealth <= 0.0f) IsDead = true;
 	else if (CurrentHealth > MaxHealth) CurrentHealth = MaxHealth;
