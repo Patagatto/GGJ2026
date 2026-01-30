@@ -37,7 +37,7 @@ void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	SetActorEnableCollision(false);
+	//SetActorEnableCollision(false);
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);

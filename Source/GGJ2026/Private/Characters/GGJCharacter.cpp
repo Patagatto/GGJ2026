@@ -223,6 +223,7 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
 		GEngine->AddOnScreenDebugMessage(0, 0.0f, FColor::Red, FString::Printf(TEXT("TimeToAddOnHit:  %f s"), TimeToAddOnHit));
+		GEngine->AddOnScreenDebugMessage(3, 0.0f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f"), CurrentHealth));
 
 	}
 
@@ -487,7 +488,7 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 		OverlapResults,
 		StartLoc,
 		FQuat::Identity,
-		ECC_Pawn,
+		ECC_GameTraceChannel3,
 		FCollisionShape::MakeSphere(LungeRange),
 		Params
 	);
@@ -967,8 +968,14 @@ void AGGJCharacter::RemoveBuff(EMaskType MaskType)
 
 void AGGJCharacter::ApplyLifeRegeneration()
 {
-	CurrentHealth += 1 * LifeRegenMultiplier;
-	GEngine->AddOnScreenDebugMessage(3, 1.5f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f s"), CurrentHealth));
+	if (CurrentHealth<MaxHealth)
+	{
+		CurrentHealth += 1 * LifeRegenMultiplier;
+	}
+	else
+	{
+		CurrentHealth = MaxHealth;
+	}
 }
 
 #pragma endregion
