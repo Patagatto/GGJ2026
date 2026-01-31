@@ -385,7 +385,6 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
-		OnEnemyHit(true, CurrentMaskType != EMaskType::None);
 		
 		
 		// If wearing a mask, extend its duration
@@ -446,6 +445,12 @@ void AGGJCharacter::DisableInvincibility()
 
 void AGGJCharacter::InterruptCombatActions()
 {
+	// If we are currently charging, ensure the charge end event is fired (stops sounds/VFX)
+	if (ActionState == ECharacterActionState::Charging)
+	{
+		OnChargeEnded();
+	}
+
 	// Stop any active combo timers
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 	
@@ -469,6 +474,9 @@ void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
 
 	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
 	bIsInvincible = true;
+
+	// Trigger Blueprint Event for sound/VFX
+	OnKnockedDown();
 
 	if (DamageCauser)
 	{
@@ -506,7 +514,28 @@ void AGGJCharacter::HandleHurt(AActor* DamageCauser)
 void AGGJCharacter::HandleDeath()
 {
 	ActionState = ECharacterActionState::Dead;
-	// TODO: Disable Input, Play Death Animation, Show Game Over Screen
+	
+	// 1. Disable Input immediately
+	if (APlayerController* PC = Cast<APlayerController>(Controller))
+	{
+		DisableInput(PC);
+	}
+
+	// 2. Trigger Blueprint Event (Play Animation, Sound, VFX)
+	OnPlayerDied();
+
+	// 3. Slow Motion Effect (Dramatic Death)
+	// In local multiplayer, this affects BOTH players as they share the world time.
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 0.25f);
+
+	// 4. Reset Time Dilation after a short delay
+	// Note: Timers run on Game Time. If dilation is 0.25, 0.5 seconds game time = 2.0 seconds real time.
+	GetWorld()->GetTimerManager().SetTimer(TimeDilationTimerHandle, this, &AGGJCharacter::ResetGlobalTimeDilation, 0.5f, false);
+}
+
+void AGGJCharacter::ResetGlobalTimeDilation()
+{
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
 }
 
 float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -794,8 +823,6 @@ void AGGJCharacter::PerformAttack()
 	// Stop the reset timer because we are now executing an attack
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 	bPendingCombo = false; // Reset flag consumed
-
-	OnEnemymiss(false, CurrentMaskType != EMaskType::None);
 	
 	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
 	ActionState = ECharacterActionState::Attacking;
@@ -810,6 +837,12 @@ void AGGJCharacter::StartCharging()
 	ActionState = ECharacterActionState::Charging;
 	CurrentChargeTime = 0.0f;
 	CurrentDamageMultiplier = 1.0f;
+	
+	// Stop movement immediately to prevent sliding while charging
+	GetCharacterMovement()->StopMovementImmediately();
+
+	// Trigger Blueprint event for Charge Start (Audio/VFX)
+	OnChargeStarted();
 
 	// Check if we are continuing a combo BEFORE clearing the timer.
 	if (GetWorld()->GetTimerManager().IsTimerActive(ComboTimerHandle))
@@ -840,6 +873,9 @@ void AGGJCharacter::FinishCharging()
 	// If we were not charging (maybe interrupted by hit), do nothing
 	if (ActionState != ECharacterActionState::Charging) return;
 
+	// Trigger Blueprint event for Charge End (Stop Audio/VFX)
+	OnChargeEnded();
+
 	// Calculate Multiplier based on how long we held the button
 	// 0.0s -> 1.0x damage
 	// MaxChargeTime -> MaxChargeDamageMultiplier
@@ -852,6 +888,11 @@ void AGGJCharacter::FinishCharging()
 
 void AGGJCharacter::OnAttackFinished()
 {
+	// Trigger Attack Completed Event with results
+	const bool bHitEnemy = HitActors.Num() > 0;
+	const bool bHasMask = CurrentMaskType != EMaskType::None;
+	OnAttackCompleted(bHitEnemy, bHasMask);
+
 	ActionState = ECharacterActionState::None;
 
 	// If we were lunging, stop it and restore normal movement physics
@@ -966,6 +1007,7 @@ void AGGJCharacter::Interact()
 		// If the mask is flying (thrown by someone), catch it!
 		if (OverlappingMask->IsFlying())
 		{
+			OnMaskCaught();
 			// Catching logic is the same as equipping
 			EquipMask(OverlappingMask);
 			bInputConsumed = true; // Prevent throwing immediately after catching

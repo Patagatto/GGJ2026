@@ -75,6 +75,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 	
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
+	bHasHitPlayer = false;
 }
 
 // Called when the game starts or when spawned
@@ -153,6 +154,12 @@ void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 		UE_LOG(LogTemp, Warning, TEXT("Enemy touched Player! Dealing %.1f Damage"), Damage);
 
 		UGameplayStatics::ApplyDamage(OtherActor, Damage, GetController(), this, UDamageType::StaticClass());
+		
+		// If the component that touched the player was the Weapon (Hitbox), mark as hit.
+		if (OverlappedComp == HitboxComponent)
+		{
+			bHasHitPlayer = true;
+		}
 	}
 }
 
@@ -199,6 +206,9 @@ void AEnemyCharacter::AttackFinished()
 
 void AEnemyCharacter::OnDeath()
 {
+	// Trigger Blueprint Event (Sound, VFX, Animation)
+	OnEnemyDied();
+
 	// Deactivate Movement
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->SetMovementMode(MOVE_None);
@@ -223,10 +233,16 @@ void AEnemyCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 		HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 		HitboxComponent->SetBoxExtent(Extent);
 		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		
+		// Reset hit tracker for this new swing
+		bHasHitPlayer = false;
 	}	
 }
 
 void AEnemyCharacter::DeactivateMeleeHitbox()
 {
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
+	// Trigger the Blueprint event with the result of the attack
+	OnAttackCompleted(bHasHitPlayer);
 }

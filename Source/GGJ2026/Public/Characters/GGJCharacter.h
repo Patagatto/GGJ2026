@@ -482,12 +482,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnGetUpFinished();
 	
-	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
-	void OnEnemyHit(bool HasHit, bool HasMask);
 	
+	/** Event called when the attack sequence finishes. Provides info on hit result and mask state. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
-	void OnEnemymiss(bool HasHit, bool HasMask);
+	void OnAttackCompleted(bool bHasHitEnemy, bool bHasMask);
+
+	/** Event called when the player catches a flying mask. Use this to play sound/VFX in Blueprint. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
+	void OnMaskCaught();
 	
+	/** Event called when the player is knocked down (starts falling). Use this to play sound/VFX in Blueprint. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnKnockedDown();
+	
+	/** Event called when the player dies. Use this to play death sound/VFX/Animation in Blueprint. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnPlayerDied();
+
+	/** Event called when the player starts charging an attack. Use for looping sound/VFX. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnChargeStarted();
+
+	/** Event called when the player stops charging (release or interrupt). Use to stop looping sound/VFX. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnChargeEnded();
 
 	/** 
 	 * Activates the combat hitbox.
@@ -505,4 +523,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ActivateMask(FName SocketName);
+
+private:
+	/** Helper to reset time dilation back to normal. */
+	void ResetGlobalTimeDilation();
+	FTimerHandle TimeDilationTimerHandle;
 };

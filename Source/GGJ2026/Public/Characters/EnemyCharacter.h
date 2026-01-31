@@ -34,6 +34,9 @@ protected:
 	UPROPERTY(EditAnywhere)
 	float Damage;
 	
+	/** Tracks if the current attack has hit the player. Resets on new attack. */
+	bool bHasHitPlayer = false;
+	
 	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	// UBoxComponent* Box;
 		
@@ -74,6 +77,13 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FVector SpawnLocation;
 	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnEnemyDied();
+	
+	/** Event called when the attack hitbox is deactivated. bHitPlayer is true if damage was dealt. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnAttackCompleted(bool bHitPlayer);
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
