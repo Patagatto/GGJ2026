@@ -134,10 +134,10 @@ bool AEnemyCharacter::CanAttack()
 {
 	if (AttackManager)
 	{
-		IsAttacking = AttackManager->RequestAttack(this);
+		return AttackManager->RequestAttack(this);
 	}
 	
-	return IsAttacking;
+	return false;
 }
 
 void AEnemyCharacter::AttackFinished()
