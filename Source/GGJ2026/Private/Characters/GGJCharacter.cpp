@@ -152,6 +152,10 @@ void AGGJCharacter::BeginPlay()
 	// Save the default roll cooldown and walk speed so we can restore them after buffs expire
 	DefaultRollCooldown = RollCooldown;
 	DefaultMaxWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	
+	// Center sprite relative to capsule to prevent visual "orbiting" (depth shifting) during rotation.
+	// Keeps Z (height) as set in Blueprint.
+	GetSprite()->SetRelativeLocation(FVector(0.0f, 0.0f, GetSprite()->GetRelativeLocation().Z));
 
 	// Initialize Health
 	CurrentHealth = 50;  //MaxHealth;
@@ -888,6 +892,7 @@ void AGGJCharacter::PerformRoll()
 
 	// Determine Direction
 	FVector RollDirection = GetLastMovementInputVector();
+	RollDirection.Z = 0.0f; // Force planar movement to prevent vertical drift
 	
 	// Handle Stick Drift / Small Input:
 	// If the input is very small (magnitude < 0.1), treat it as zero so we use the character's facing direction instead.
@@ -925,7 +930,8 @@ void AGGJCharacter::PerformRoll()
 	// for the entire duration without needing player input.
 	GetCharacterMovement()->BrakingDecelerationWalking = 0.0f;
 	GetCharacterMovement()->GroundFriction = 2.0f; // Lower friction to slide farther
-	LaunchCharacter(RollDirection * RollSpeed, true, false); // bXYOverride, bZOverride
+	// Override Z (true) to 0.0f to lock vertical movement and prevent hopping/diving on slopes
+	LaunchCharacter(RollDirection * RollSpeed, true, true); 
 
 	// Set State (Invincibility is handled in TakeDamage by checking this state)
 	ActionState = ECharacterActionState::Rolling;

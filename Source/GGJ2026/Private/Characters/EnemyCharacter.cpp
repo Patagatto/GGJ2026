@@ -5,13 +5,10 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "PaperFlipbookComponent.h"
-#include "PaperFlipbook.h"
 #include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
-#include "Engine/OverlapResult.h"
 #include "Characters/GGJCharacter.h"
 #include "Items/MaskPickup.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/BoxComponent.h" 
 #include "Kismet/GameplayStatics.h"
 
@@ -72,7 +69,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel5);
 	// It should ignore everything by default...
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
+	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->ComponentTags.Add(FName("Hitbox"));
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
@@ -146,6 +143,10 @@ void AEnemyCharacter::DeactivateEnemy()
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
                                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	// FIX: Ignore the Player's Hitbox (Weapon) to prevent taking contact damage when attacking the enemy.
+	// ECC_GameTraceChannel3 corresponds to the PlayerHitbox channel.
+	if (OtherComp && OtherComp->GetCollisionObjectType() == ECC_GameTraceChannel3) return;
+
 	if (OtherActor && OtherActor->IsA<AGGJCharacter>())
 	{
 		
