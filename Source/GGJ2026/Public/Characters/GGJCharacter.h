@@ -193,10 +193,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
 	float MaxMaskDuration = 30.0f;
 
-	/** Amount of time (in seconds) added to the mask duration when hitting an enemy. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
-	float TimeToAddOnHit = 1.0f;
-
 	/** How quickly the mask's drain rate increases over time. Higher value = harder to maintain. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
 	float DrainIncreaseRate = 0.05f;
@@ -216,12 +212,26 @@ public:
 	class UPaperFlipbook* BlueCatMaskFlipbook;
 	
 	// --- Mask System  (Buffs) ---
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayPriority = "0"))
-	float LifeRegenMultiplier = 1.2;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayPriority = "0"))
-	float MaskUsageBuff = 0.5;
+
+	/** (Red Rabbit) Percentage of damage dealt that is returned as health. 0.1 = 10% Lifesteal. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayName = "Lifesteal Percentage (Red)"))
+	float RedRabbit_LifestealAmount = 0.1f;
+
+	/** (Red Rabbit) Amount of time (in seconds) added to the mask duration when hitting an enemy. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayName = "Mask Time Bonus on Hit (Red)"))
+	float RedRabbit_TimeToAddOnHit = 1.0f;
+
+	/** (Green Bird) Percentage of incoming damage to ignore. 0.25 = 25% damage reduction. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayName = "Damage Reduction (Green)"))
+	float GreenBird_DamageReductionAmount = 0.25f;
+
+	/** (Blue Cat) The new, lower cooldown for the Roll ability. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayName = "Roll Cooldown (Blue)"))
+	float BlueCat_RollCooldown = 0.4f;
+
+	/** (Blue Cat) The new, higher movement speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks|Buffs", meta = (DisplayName = "Movement Speed (Blue)"))
+	float BlueCat_MovementSpeed = 800.0f;
 
 	// ========================================================================
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
@@ -311,8 +321,9 @@ protected:
 	FTimerHandle HitCountResetTimerHandle;
 	FTimerHandle GetUpTimerHandle;
 	FTimerHandle GroundedTimerHandle;
-	FTimerHandle LifeRegenerationTimerHandle;
 	float DefaultBrakingDeceleration;
+	float DefaultRollCooldown;
+	float DefaultMaxWalkSpeed;
 
 	/** Flag to track if the jump button was released during the delay */
 	bool bJumpStopPending = false;
@@ -322,6 +333,18 @@ protected:
 
 	/** If true, the character cannot roll until the cooldown expires. */
 	bool bIsRollOnCooldown = false;
+
+	/** If true, hitting an enemy extends the current mask's duration. (Red Rabbit Buff) */
+	bool bExtendsDurationOnHit = false;
+
+	/** If true, incoming damage is reduced by a percentage. (Green Bird Buff) */
+	bool bHasDamageReduction = false;
+
+	/** If true, the character cannot be knocked down by consecutive hits. (Green Bird Buff) */
+	bool bIsImmuneToKnockdown = false;
+
+	/** If true, the character heals for a percentage of damage dealt. (Red Rabbit Buff) */
+	bool bHasLifesteal = false;
 
 	/** A reference to the closest mask the player can pick up. */
 	UPROPERTY()
@@ -401,8 +424,6 @@ protected:
 	void ApplyBuff(EMaskType MaskType);
 	void RemoveBuff(EMaskType MaskType);
 	
-	void ApplyLifeRegeneration();
-
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
 	void OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
