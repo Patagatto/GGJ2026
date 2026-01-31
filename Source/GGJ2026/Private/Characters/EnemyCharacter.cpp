@@ -6,8 +6,9 @@
 #include "PaperFlipbookComponent.h"
 #include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
+#include "Characters/GGJCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Components/BoxComponent.h"
+#include "Components/BoxComponent.h" 
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -104,18 +105,21 @@ void AEnemyCharacter::DeactivateEnemy()
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
                                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (OtherActor == UGameplayStatics::GetPlayerPawn(GetWorld(), 0))
+	if (OtherActor && OtherActor->IsA<AGGJCharacter>())
 	{
-		if (UHealthComponent* Health = Cast<UHealthComponent>(OtherActor->GetComponentByClass(UHealthComponent::StaticClass()))) Health->ApplyDamage(Damage);
+		
+		UGameplayStatics::ApplyDamage(OtherActor, Damage, GetController(), this, UDamageType::StaticClass());
 	}
 }
 
 float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
 	class AController* EventInstigator, AActor* DamageCauser)
 {
-	if (DamageCauser == UGameplayStatics::GetPlayerPawn(GetWorld(), 0))
+	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (ActualDamage > 0.f && DamageCauser && DamageCauser->IsA<AGGJCharacter>())
 	{
-		HealthComp->ApplyDamage(DamageAmount);
+		HealthComp->ApplyDamage(ActualDamage);
 		if(HealthComp->IsActorDead())
 		{
 			OnDeath();
@@ -123,7 +127,7 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		}
 	}
 	
-	return DamageAmount;
+	return ActualDamage;
 }
 
 bool AEnemyCharacter::CanAttack()

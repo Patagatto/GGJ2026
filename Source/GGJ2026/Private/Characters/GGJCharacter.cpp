@@ -18,6 +18,7 @@
 #include "Items/MaskPickup.h"
 #include "PaperFlipbook.h"
 #include "GameFramework/DamageType.h"
+#include "InputMappingContext.h"
 
 
 AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
@@ -191,19 +192,10 @@ void AGGJCharacter::BeginPlay()
 	bHasLifesteal = false;
 	OverlappingMask = nullptr;
 
-	// Add Input Mapping Context
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-		}
-	}
-
 	// Initialize LastFacingDirection based on the initial AnimDirection (180) and Camera Rotation
 	// This ensures we start with a valid direction even before moving
 	FRotator CameraRotation = FollowCamera->GetComponentRotation();
-	float InitialYaw = CameraRotation.Yaw + AnimDirection;
+	const float InitialYaw = CameraRotation.Yaw + AnimDirection;
 	LastFacingDirection = FRotator(0.0f, InitialYaw, 0.0f).Vector();
 }
 
@@ -211,11 +203,11 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	// Handle Lunge movement over time
+	// Handle Lunge movement interpolation
 	if (bIsLunging)
 	{
 		const float LungeDuration = 0.15f;
-		SetActorLocation(FMath::VInterpTo(GetActorLocation(), LungeTargetLocation, DeltaSeconds, 1.0f / LungeDuration));
+		SetActorLocation(FMath::VInterpTo(GetActorLocation(), LungeTargetLocation, DeltaSeconds, 1.0f / LungeDuration)); 
 	}
 
 	// Calculate speed and movement state for AnimBP
@@ -231,7 +223,6 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | MaxSpeed: %.0f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, GetCharacterMovement()->MaxWalkSpeed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
 		GEngine->AddOnScreenDebugMessage(3, 0.0f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f"), CurrentHealth));
-
 	}
 
 	UpdateAnimationDirection();
@@ -243,13 +234,11 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 	// Bind Input Actions
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
 		// Jump
-
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AGGJCharacter::StartJumpSequence);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AGGJCharacter::StopJumpSequence);
-		// Move
 		
+		// Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGGJCharacter::Move);
 
 		// Attack (Charge Logic)
@@ -265,11 +254,42 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	}
 }
 
+void AGGJCharacter::PawnClientRestart()
+{
+	// Super::PawnClientRestart() is important as it calls SetupPlayerInputComponent.
+	Super::PawnClientRestart();
+
+	// This is the ideal place to set up input contexts, as it's called for every player-controlled pawn
+	// when it's possessed by its controller on the client.
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			// Clear any existing mappings to prevent stacking them on re-possess
+			Subsystem->ClearAllMappings();
+
+			const int32 PlayerIndex = PlayerController->GetLocalPlayer()->GetControllerId();
+
+			// For local gamepad multiplayer, all players use the same mapping context.
+			if (DefaultMappingContext)
+			{
+				Subsystem->AddMappingContext(DefaultMappingContext, 0);
+				UE_LOG(LogTemp, Log, TEXT("PawnClientRestart: Applied Input Mapping Context '%s' to player %d (%s)."), *DefaultMappingContext->GetName(), PlayerIndex, *GetName());
+			}
+			else
+			{
+				// This log is critical for debugging. If it fires, it means the correct character Blueprint isn't being spawned.
+				UE_LOG(LogTemp, Error, TEXT("PawnClientRestart: DefaultMappingContext is NULL for player %d. Check the Character Blueprint!"), PlayerIndex);
+			}
+		}
+	}
+}
+
 #pragma region Movement Logic
 
 void AGGJCharacter::UpdateAnimationDirection()
 {
-	FVector Velocity = GetVelocity();
+	const FVector Velocity = GetVelocity();
 
 	// Update LastFacingDirection from Velocity if moving significantly.
 	// If not moving, LastFacingDirection retains the last Input (updated in ApplyMovementInput).
@@ -278,12 +298,12 @@ void AGGJCharacter::UpdateAnimationDirection()
 		LastFacingDirection = Velocity.GetSafeNormal2D();
 	}
 	
-	FRotator CameraRotation = FollowCamera->GetComponentRotation();
-	FRotator TargetRotation = LastFacingDirection.ToOrientationRotator();
+	const FRotator CameraRotation = FollowCamera->GetComponentRotation();
+	const FRotator TargetRotation = LastFacingDirection.ToOrientationRotator();
 
 	// Calculate the angle difference between the camera direction and velocity direction
 	// This allows the AnimBP to select the correct directional animation (Front, Back, Side)
-	float DeltaYaw = FRotator::NormalizeAxis(TargetRotation.Yaw - CameraRotation.Yaw);
+	const float DeltaYaw = FRotator::NormalizeAxis(TargetRotation.Yaw - CameraRotation.Yaw);
 
 	AnimDirection = DeltaYaw;
 
@@ -322,7 +342,7 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 
 		// Update LastFacingDirection based on Raw Input
 		// Even if movement is blocked (e.g. Attacking), we want to know where the player is aiming.
-		FVector WorldInput = (ForwardDirection * MovementVector.Y) + (RightDirection * MovementVector.X);
+		const FVector WorldInput = (ForwardDirection * MovementVector.Y) + (RightDirection * MovementVector.X);
 		if (WorldInput.SizeSquared() > 0.01f)
 		{
 			LastFacingDirection = WorldInput.GetSafeNormal();
@@ -421,6 +441,71 @@ void AGGJCharacter::DisableInvincibility()
 	// Optional: Stop flashing visual effect here
 }
 
+void AGGJCharacter::InterruptCombatActions()
+{
+	// Stop any active combo timers
+	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
+	
+	// Disable hitboxes
+	DeactivateMeleeHitbox();
+	
+	// Reset flags
+	bPendingCombo = false;
+	bIsLunging = false;
+	CurrentChargeTime = 0.0f;
+}
+
+void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
+{
+	// Reset hit counter
+	CurrentHitCount = 0;
+	ActionState = ECharacterActionState::KnockedDown;
+
+	// We've been knocked down, so the hit combo is over. Clear the reset timer.
+	GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
+
+	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
+	bIsInvincible = true;
+
+	if (DamageCauser)
+	{
+		const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+		const FVector FaceDir = -KnockbackDir;
+
+		// Force visual facing direction towards the enemy
+		LastFacingDirection = FaceDir;
+		UpdateAnimationDirection();
+
+		// Get pushed away from the enemy
+		LaunchCharacter(KnockbackDir * KnockdownPushStrength, true, true);
+	}
+}
+
+void AGGJCharacter::HandleHurt(AActor* DamageCauser)
+{
+	ActionState = ECharacterActionState::Hurt;
+
+	// Apply Knockback
+	if (DamageCauser)
+	{
+		const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+		LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
+	}
+
+	// Set Stun Timer (When to regain control)
+	GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
+
+	// Start a timer to reset the hit counter if we don't get hit again soon.
+	GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(HitCountResetTimerHandle, this, &AGGJCharacter::ResetHitCount, HitCountResetTime, false);
+}
+
+void AGGJCharacter::HandleDeath()
+{
+	ActionState = ECharacterActionState::Dead;
+	// TODO: Disable Input, Play Death Animation, Show Game Over Screen
+}
+
 float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// Call the base class - important for internal engine logic
@@ -441,72 +526,30 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		ActualDamage *= (1.0f - GreenBird_DamageReductionAmount);
 	}
 
-	if (ActualDamage > 0.0f)
+	// If no damage is taken, return early
+	if (ActualDamage <= 0.0f) return 0.0f;
+
+	// Reduce Health
+	CurrentHealth = FMath::Clamp(CurrentHealth - ActualDamage, 0.0f, MaxHealth);
+
+	if (CurrentHealth <= 0.0f)
 	{
-		// Reduce Health
-		CurrentHealth = FMath::Clamp(CurrentHealth - ActualDamage, 0.0f, MaxHealth);
+		HandleDeath();
+		return ActualDamage;
+	}
 
-		if (CurrentHealth > 0.0f)
-		{
-			// --- HIT REACTION LOGIC ---
-			// Interrupt any ongoing Attack Combo or Lunge
-			GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
-			DeactivateMeleeHitbox();
-			bPendingCombo = false;
-			bIsLunging = false;
+	// --- HIT REACTION LOGIC ---
+	InterruptCombatActions();
 
-			CurrentHitCount++;
+	CurrentHitCount++;
 
-			if (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown)
-			{
-				// --- KNOCKDOWN ---
-				CurrentHitCount = 0;
-				ActionState = ECharacterActionState::KnockedDown;
-
-				// We've been knocked down, so the hit combo is over. Clear the reset timer.
-				GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
-
-				// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
-				bIsInvincible = true;
-
-				if (DamageCauser)
-				{
-					const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
-					const FVector FaceDir = -KnockbackDir;
-
-					// Force visual facing direction towards the enemy
-					LastFacingDirection = FaceDir;
-					UpdateAnimationDirection();
-
-					// Get pushed away from the enemy
-					LaunchCharacter(KnockbackDir * KnockdownPushStrength, true, true);
-				}
-			}
-			else
-			{
-				// --- NORMAL HURT ---
-				ActionState = ECharacterActionState::Hurt;
-
-				// Apply Knockback
-				if (DamageCauser)
-				{
-					const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
-					LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
-				}
-
-				// Set Stun Timer (When to regain control)
-				GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
-
-				// Start a timer to reset the hit counter if we don't get hit again soon.
-				GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
-				GetWorld()->GetTimerManager().SetTimer(HitCountResetTimerHandle, this, &AGGJCharacter::ResetHitCount, HitCountResetTime, false);
-			}
-		}
-		else // CurrentHealth <= 0.0f
-		{
-			// Handle Death
-			ActionState = ECharacterActionState::Dead;
-		}
+	if (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown)
+	{
+		HandleKnockdown(DamageCauser);
+	}
+	else
+	{
+		HandleHurt(DamageCauser);
 	}
 
 	return ActualDamage;
@@ -562,7 +605,7 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 	}
 	
 	FVector StartLoc = GetActorLocation();
-	
+	// Use FCollisionQueryParams to ignore self efficiently
 	TArray<FOverlapResult> OverlapResults;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
@@ -579,7 +622,7 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 	AActor* BestTarget = nullptr;
 	float BestDistanceSq = FLT_MAX;
 	
-	float MinDotProduct = FMath::Cos(FMath::DegreesToRadians(LungeHalfAngle));
+	const float MinDotProduct = FMath::Cos(FMath::DegreesToRadians(LungeHalfAngle));
 
 	for (const FOverlapResult& Overlap : OverlapResults)
 	{
@@ -836,11 +879,7 @@ void AGGJCharacter::PerformRoll()
 	// If we are attacking or charging, we must cancel everything.
 	if (ActionState == ECharacterActionState::Attacking || ActionState == ECharacterActionState::Charging)
 	{
-		GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
-		bPendingCombo = false;
-		CurrentChargeTime = 0.0f;
-		DeactivateMeleeHitbox();
-		bIsLunging = false; // Stop any active lunge
+		InterruptCombatActions();
 	}
 
 	// Determine Direction

@@ -301,9 +301,24 @@ protected:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void PawnClientRestart() override;
 	
 	void UpdateAnimationDirection();
 	
+	// --- Damage & State Handlers ---
+
+	/** Handles the logic when the character is knocked down (invincibility, pushback, state change). */
+	void HandleKnockdown(AActor* DamageCauser);
+
+	/** Handles the logic when the character takes a normal hit (stun, small pushback). */
+	void HandleHurt(AActor* DamageCauser);
+
+	/** Handles the death logic. */
+	void HandleDeath();
+
+	/** Interrupts any ongoing combat actions (Combos, Lunges, Charging). */
+	void InterruptCombatActions();
+
 	// --- Internal Logic & State ---
 
 	/** Handler for the Input Action (Internal C++ binding) */

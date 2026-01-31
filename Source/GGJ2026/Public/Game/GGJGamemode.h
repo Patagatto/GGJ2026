@@ -22,5 +22,8 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Score")
 	void AddScore(int32 Amount);
-};
 
+	/** Creates the second local player and enables split-screen. Call this from Blueprint to start the session. */
+	UFUNCTION(BlueprintCallable, Category = "Player")
+	void StartSplitScreenSession();
+};
