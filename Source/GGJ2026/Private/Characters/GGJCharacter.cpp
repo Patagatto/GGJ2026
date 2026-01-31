@@ -168,6 +168,7 @@ void AGGJCharacter::BeginPlay()
 	bIsImmuneToKnockdown = false;
 	bHasLifesteal = false;
 	OverlappingMask = nullptr;
+	bInputConsumed = false;
 
 	// Initialize LastFacingDirection based on the initial AnimDirection (180) and Camera Rotation
 	// This ensures we start with a valid direction even before moving
@@ -400,10 +401,6 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 
 		// Debug Log
 		// UE_LOG(LogTemp, Warning, TEXT("Hit %s for %f damage"), *OtherActor->GetName(), DamageToDeal);
-	}
-	else
-	{
-		OnEnemyHit(false, CurrentMaskType != EMaskType::None);
 	}
 }
 
@@ -794,6 +791,8 @@ void AGGJCharacter::PerformAttack()
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 	bPendingCombo = false; // Reset flag consumed
 
+	OnEnemymiss(false, CurrentMaskType != EMaskType::None);
+	
 	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
 	ActionState = ECharacterActionState::Attacking;
 	
@@ -963,13 +962,23 @@ void AGGJCharacter::Interact()
 		{
 			// Catching logic is the same as equipping
 			EquipMask(OverlappingMask);
+			bInputConsumed = true; // Prevent throwing immediately after catching
+			return;
 		}
 		EquipMask(OverlappingMask);
+		bInputConsumed = true; // Prevent throwing immediately after pickup
 	}
 }
 
 void AGGJCharacter::ChargeMask()
 {
+	// If we just picked up the mask with this press, ignore the charge
+	if (bInputConsumed) return;
+
+	// Priority Check: If we are standing on a mask, we should interact, not charge.
+	// This prevents ChargeMask from running if it fires before Interact in the same frame.
+	if (OverlappingMask) return;
+
 	if (CurrentMaskType == EMaskType::None) return;
 	if (ActionState != ECharacterActionState::None && ActionState != ECharacterActionState::ChargeMask) return;
 	
@@ -987,6 +996,13 @@ void AGGJCharacter::ChargeMask()
 
 void AGGJCharacter::LaunchMask()
 {
+	// If we just picked up the mask, releasing the button should just reset the flag, not throw.
+	if (bInputConsumed)
+	{
+		bInputConsumed = false;
+		return;
+	}
+
 	if (ActionState != ECharacterActionState::ChargeMask) return;
 
 	// Reset State

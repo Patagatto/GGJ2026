@@ -49,7 +49,9 @@ void AMaskPickup::Tick(float DeltaTime)
 	if (bIsFlying)
 	{
 		// Rotate the sprite visually
-		Sprite->AddLocalRotation(FRotator(0.0f, 0.0f, RotationSpeed * DeltaTime));
+		// Spin around the Z axis (Yaw). Since we tilted the sprite flat in InitializeThrow,
+		// this makes it spin like a frisbee/shuriken on the horizontal plane.
+		Sprite->AddLocalRotation(FRotator(0.0f, RotationSpeed * DeltaTime, 0.0f));
 
 		// Check if off-screen to destroy
 		CheckOffScreen();
@@ -64,6 +66,10 @@ void AMaskPickup::InitializeThrow(FVector Direction, AActor* InShooter)
 	// Activate movement
 	ProjectileMovement->Velocity = Direction * 1500.0f; // Throw Speed
 	
+	// VISUAL FIX: Tilt the sprite -90 degrees (Pitch) so it lies flat parallel to the ground.
+	// This prevents the "spinning line" effect in top-down view and makes it look like a flying disc.
+	Sprite->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+
 	// Enable collision with enemies (ensure Trigger profile overlaps Pawn/Character)
 	InteractionVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
