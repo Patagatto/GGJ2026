@@ -1097,6 +1097,7 @@ void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
 	CurrentMaskType = MaskToEquip->MaskType;
 	CurrentMaskDuration = MaxMaskDuration;
 	DrainRateMultiplier = 1.0f;
+	OnMaskChanged(CurrentMaskType);
 
 	// Apply the corresponding buff
 	ApplyBuff(CurrentMaskType);
@@ -1138,6 +1139,7 @@ void AGGJCharacter::UnequipMask()
 	CurrentMaskDuration = 0.0f;
 	GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
 	MaskSprite->SetFlipbook(nullptr); // Hide the mask by removing its flipbook
+	OnMaskChanged(CurrentMaskType);
 	
 	// Note: We do NOT destroy the pickup here if called from LaunchMask, 
 	// because LaunchMask spawns a NEW actor. This function just clears local state.

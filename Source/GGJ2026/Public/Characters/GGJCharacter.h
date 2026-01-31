@@ -508,6 +508,9 @@ public:
 	/** Event called when the player stops charging (release or interrupt). Use to stop looping sound/VFX. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnChargeEnded();
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Outline")
+	void OnMaskChanged(EMaskType MaskType);
 
 	/** 
 	 * Activates the combat hitbox.
