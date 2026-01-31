@@ -45,7 +45,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
-	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
+	HurtboxComponent->ComponentTags.Add(TEXT("Hurtbox"));
 	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 	
 	// Hitbox: Deals damage4
@@ -71,7 +71,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
-	HitboxComponent->ComponentTags.Add(FName("Hitbox"));
+	HitboxComponent->ComponentTags.Add(TEXT("Hitbox"));
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 	
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
@@ -177,7 +177,6 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		if(HealthComp->IsActorDead())
 		{
 			OnDeath();
-			DeactivateEnemy();
 		}
 	}
 	
