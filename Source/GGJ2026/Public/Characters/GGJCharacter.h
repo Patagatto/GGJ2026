@@ -25,6 +25,7 @@ enum class ECharacterActionState : uint8
 	Rolling		UMETA(DisplayName = "Rolling"),
 	Hurt		UMETA(DisplayName = "Hurt"),
 	Charging	UMETA(DisplayName = "Charging"),
+	ChargeMask  UMETA(DisplayName = "ChargeMask"),
 	KnockedDown	UMETA(DisplayName = "KnockedDown"),
 	Grounded	UMETA(DisplayName = "Grounded"),
 	GettingUp	UMETA(DisplayName = "GettingUp"),
@@ -421,6 +422,10 @@ protected:
 
 	/** Main interaction function, called by input. */
 	void Interact();
+	
+	void ChargeMask();
+	
+	void LaunchMask();
 
 	/** Equips a new mask and starts its timer. */
 	void EquipMask(AMaskPickup* MaskToEquip);
@@ -473,6 +478,10 @@ public:
 	/** Call this via AnimNotify (PaperZD) when the get up animation is finished. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnGetUpFinished();
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnEnemyHit(bool HasMask);
+	
 
 	/** 
 	 * Activates the combat hitbox.

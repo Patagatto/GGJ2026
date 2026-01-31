@@ -228,6 +228,9 @@ void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 		// Interact
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AGGJCharacter::Interact);
+		// LauncheMask
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &AGGJCharacter::ChargeMask);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &AGGJCharacter::LaunchMask);
 	}
 }
 
@@ -374,7 +377,15 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
-
+		if (CurrentMaskType == EMaskType::None)
+		{
+			OnEnemyHit(false);
+		}
+		else
+		{
+			OnEnemyHit(true);
+		}
+		
 		// If wearing a mask, extend its duration
 		if (bExtendsDurationOnHit)
 		{
@@ -805,9 +816,7 @@ void AGGJCharacter::StartCharging()
 	{
 		bPendingCombo = false;
 	}
-
-	// IMPORTANT: Pause the combo timer!
-	// If we hold the button for 2 seconds, we don't want the combo to reset to 0 while we are charging.
+	
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 }
 
@@ -950,6 +959,19 @@ void AGGJCharacter::Interact()
 	{
 		EquipMask(OverlappingMask);
 	}
+}
+
+void AGGJCharacter::ChargeMask()
+{
+	if (CurrentMaskType == EMaskType::None) return;
+	
+		
+	
+}
+
+void AGGJCharacter::LaunchMask()
+{
+	
 }
 
 void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
