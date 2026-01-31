@@ -82,6 +82,10 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// It should generate overlap events but not block anything by default
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 
 	MaskSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("MaskSprite"));

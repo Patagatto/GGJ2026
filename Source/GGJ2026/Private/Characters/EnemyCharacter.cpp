@@ -42,8 +42,10 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
+	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 }
 
 // Called when the game starts or when spawned
@@ -51,6 +53,15 @@ void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (HurtboxComponent)
+	{
+		HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+		HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap); // Detect Player Capsule/Hurtbox
+		HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap); // Detect Player Hitbox
+		HurtboxComponent->SetGenerateOverlapEvents(true);
+	}
+
 	//SetActorEnableCollision(false);
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
@@ -108,6 +119,8 @@ void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 	if (OtherActor && OtherActor->IsA<AGGJCharacter>())
 	{
 		
+		UE_LOG(LogTemp, Warning, TEXT("Enemy touched Player! Dealing %.1f Damage"), Damage);
+
 		UGameplayStatics::ApplyDamage(OtherActor, Damage, GetController(), this, UDamageType::StaticClass());
 	}
 }
