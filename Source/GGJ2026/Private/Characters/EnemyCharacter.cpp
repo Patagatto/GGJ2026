@@ -7,6 +7,7 @@
 #include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
 #include "Characters/GGJCharacter.h"
+#include "Items/MaskPickup.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/BoxComponent.h" 
 #include "Kismet/GameplayStatics.h"
@@ -130,7 +131,10 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 {
 	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	if (ActualDamage > 0.f && DamageCauser && DamageCauser->IsA<AGGJCharacter>())
+	
+	const bool bValidSource = DamageCauser && (DamageCauser->IsA<AGGJCharacter>() || DamageCauser->IsA<AMaskPickup>());
+
+	if (ActualDamage > 0.f && bValidSource)
 	{
 		HealthComp->ApplyDamage(ActualDamage);
 		if(HealthComp->IsActorDead())

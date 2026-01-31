@@ -1017,6 +1017,7 @@ void AGGJCharacter::LaunchMask()
 	
 	// Spawn slightly in front to avoid clipping
 	FVector SpawnLoc = GetActorLocation() + (LastFacingDirection * 60.0f);
+	SpawnLoc.Z += 40.0f; // Spawn higher from the ground
 	
 	AMaskPickup* ThrownMask = GetWorld()->SpawnActor<AMaskPickup>(AMaskPickup::StaticClass(), SpawnLoc, FRotator::ZeroRotator, SpawnParams);
 	if (ThrownMask)
