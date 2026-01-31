@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
+#include "Components/StackBox.h"
 #include "MainMenuWidget.generated.h"
 
 /**
@@ -23,12 +24,20 @@ class GGJ2026_API UMainMenuWidget : public UUserWidget
 	GENERATED_BODY()
 	
 protected:
+	// Images
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UImage* GameTitle;
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
 	UImage* BackGround;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	UStackBox* WarningBox;
 	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	UImage* WarningBG;
+	
+	// Buttons
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UButton* StartButton1P;
 	
@@ -41,8 +50,15 @@ protected:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UButton* QuitButton;
 	
+	// Variables		
 	UPROPERTY(EditDefaultsOnly)
 	FName StartLevelName;
+	
+	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	UWidgetAnimation* WarningAnimation;
+	
+	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	UWidgetAnimation* FadeAnimation;
 	
 	EPlayMode Mode;
 	
@@ -57,4 +73,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void QuitGame();
+	
+	UFUNCTION(BlueprintCallable)
+	void LoadLevel();
 };

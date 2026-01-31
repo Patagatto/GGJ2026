@@ -10,6 +10,15 @@
 #include "Components/HealthComponent.h"
 #include "EnemyCharacter.generated.h"
 
+UENUM(BlueprintType)
+enum class EEnemyType : uint8
+{
+	Maskless UMETA(DisplayName = "Maskless"),
+	Rabbit UMETA(DisplayName = "Rabbit"),
+	Bird UMETA(DisplayName = "Bird"),
+	Cat UMETA(DisplayName = "Cat"),
+};
+
 UCLASS()
 class GGJ2026_API AEnemyCharacter : public APaperZDCharacter
 {
@@ -47,6 +56,9 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EEnemyType Type;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsAttacking = false;
 		

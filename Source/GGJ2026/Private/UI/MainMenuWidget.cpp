@@ -3,6 +3,7 @@
 
 #include "UI/MainMenuWidget.h"
 
+#include "Animation/WidgetAnimation.h"
 #include "Game/GGJGameInstance.h"
 #include "GameFramework/InputDeviceLibrary.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,7 +23,6 @@ void UMainMenuWidget::StartGame1P()
 	{
 		// Start fading animation
 		Cast<UGGJGameInstance>(GetGameInstance())->PlayMode = EPlayMode::SinglePlayer;
-		UGameplayStatics::OpenLevel(GetWorld(), StartLevelName);
 	}
 }
 
@@ -30,10 +30,18 @@ void UMainMenuWidget::StartGame2P()
 {
 	if (StartLevelName == FName("E_MainLevel"))
 	{
-		// Start fading animation
-		UInputDeviceLibrary::GetAllConnectedInputDevices();
-		Cast<UGGJGameInstance>(GetGameInstance())->PlayMode = EPlayMode::MultiPlayer;
-		UGameplayStatics::OpenLevel(GetWorld(), StartLevelName);
+		// Check if two inputs are connected
+		TArray<FInputDeviceId> Devices;
+		if (UInputDeviceLibrary::GetAllConnectedInputDevices(Devices) < 2)
+		{
+			PlayAnimationForward(WarningAnimation);
+		}
+		else
+		{
+			PlayAnimationForward(FadeAnimation);
+			// FadeAnimation->BindToAnimationFinished(this, );
+			Cast<UGGJGameInstance>(GetGameInstance())->PlayMode = EPlayMode::MultiPlayer;
+		}
 	}
 }
 
@@ -41,4 +49,9 @@ void UMainMenuWidget::QuitGame()
 {
 	// Are you sure message
 	UKismetSystemLibrary::QuitGame(GetWorld(), UGameplayStatics::GetPlayerController(GetWorld(), 0), EQuitPreference::Quit, true);
+}
+
+void UMainMenuWidget::LoadLevel()
+{
+	UGameplayStatics::OpenLevel(GetWorld(), StartLevelName);
 }
