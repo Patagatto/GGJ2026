@@ -36,6 +36,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
+		
 	HurtboxComponent->SetupAttachment(GetSprite());
 	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
 	HurtboxComponent->SetCollisionObjectType(ECC_GameTraceChannel4);
@@ -46,6 +47,33 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
 	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
+	
+	// Hitbox: Deals damage4
+	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
+		
+	if (HitboxComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Constructor] HitboxComponent created: %s"), 
+			*HitboxComponent->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Constructor] FAILED to create HitboxComponent!"));
+	}
+	
+	// IMPORTANT: Attach to Sprite, not Root.
+	// This ensures the hitbox moves correctly when the sprite is flipped (Scale X = -1).
+	HitboxComponent->SetupAttachment(GetSprite()); 
+	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
+	// Set the hitbox to use our custom "PlayerHitbox" channel
+	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel3);
+	// It should ignore everything by default...
+	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	// ...except for Pawns, which it should overlap with.
+	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
+	
+	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 }
 
 // Called when the game starts or when spawned
@@ -61,8 +89,16 @@ void AEnemyCharacter::BeginPlay()
 		HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap); // Detect Player Hitbox
 		HurtboxComponent->SetGenerateOverlapEvents(true);
 	}
-
-	//SetActorEnableCollision(false);
+	
+	if (HitboxComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] HitboxComponent valid: %s"), 
+			*HitboxComponent->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[BeginPlay] HitboxComponent is nullptr!"));
+	}
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);
@@ -159,6 +195,7 @@ void AEnemyCharacter::AttackFinished()
 	{
 		IsAttacking = false;
 		AttackManager->ReleaseToken(this);
+		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 
@@ -173,4 +210,25 @@ void AEnemyCharacter::OnDeath()
 	
 	// Check if has Pending Token
 	if (AttackManager) AttackManager->ReleaseToken(this);
+}
+
+void AEnemyCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
+{
+	// Safety Check: If socket doesn't exist on current sprite, warn and abort.
+	if (!GetSprite()->DoesSocketExist(SocketName))
+	{
+		return; // Avoid attaching to root by mistake
+	}
+
+	if (HitboxComponent)
+	{
+		HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		HitboxComponent->SetBoxExtent(Extent);
+		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}	
+}
+
+void AEnemyCharacter::DeactivateMeleeHitbox()
+{
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
