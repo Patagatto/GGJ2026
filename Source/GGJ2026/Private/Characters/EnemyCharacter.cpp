@@ -2,10 +2,13 @@
 
 
 #include "Characters/EnemyCharacter.h"
-
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "PaperFlipbookComponent.h"
+#include "PaperFlipbook.h"
 #include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
+#include "Engine/OverlapResult.h"
 #include "Characters/GGJCharacter.h"
 #include "Items/MaskPickup.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,9 +18,9 @@
 // Sets default values
 AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+{	
+	GetCapsuleComponent()->InitCapsuleSize(30.f, 85.0f);
+	GetCapsuleComponent()->SetUseCCD(true);
 	
 	// --- Character Rotation Setup ---
 	// Don't rotate when the controller rotates. Let that just affect the camera.
@@ -37,37 +40,63 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
+		
 	HurtboxComponent->SetupAttachment(GetSprite());
-	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
+	HurtboxComponent->SetBoxExtent(FVector(20.f, 10.f, 40.f));
 	HurtboxComponent->SetCollisionObjectType(ECC_GameTraceChannel4);
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
 	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
+	
+	// Hitbox: Deals damage4
+	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
+		
+	if (HitboxComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Constructor] HitboxComponent created: %s"), 
+			*HitboxComponent->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Constructor] FAILED to create HitboxComponent!"));
+	}
+	
+	// IMPORTANT: Attach to Sprite, not Root.
+	// This ensures the hitbox moves correctly when the sprite is flipped (Scale X = -1).
+	HitboxComponent->SetupAttachment(GetSprite()); 
+	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
+	// Set the hitbox to use our custom "PlayerHitbox" channel
+	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel5);
+	// It should ignore everything by default...
+	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
+	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->ComponentTags.Add(FName("Hitbox"));
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
+	
+	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 }
 
 // Called when the game starts or when spawned
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	if (HurtboxComponent)
+		
+	if (HitboxComponent)
 	{
-		HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-		HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap); // Detect Player Capsule/Hurtbox
-		HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap); // Detect Player Hitbox
-		HurtboxComponent->SetGenerateOverlapEvents(true);
+		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] HitboxComponent valid: %s"), 
+			*HitboxComponent->GetName());
 	}
-
-	//SetActorEnableCollision(false);
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[BeginPlay] HitboxComponent is nullptr!"));
+	}
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);
-	
 }
 
 // Called every frame
@@ -163,6 +192,7 @@ void AEnemyCharacter::AttackFinished()
 	{
 		IsAttacking = false;
 		AttackManager->ReleaseToken(this);
+		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 
@@ -177,4 +207,25 @@ void AEnemyCharacter::OnDeath()
 	
 	// Check if has Pending Token
 	if (AttackManager) AttackManager->ReleaseToken(this);
+}
+
+void AEnemyCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
+{
+	// Safety Check: If socket doesn't exist on current sprite, warn and abort.
+	if (!GetSprite()->DoesSocketExist(SocketName))
+	{
+		return; // Avoid attaching to root by mistake
+	}
+
+	if (HitboxComponent)
+	{
+		HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		HitboxComponent->SetBoxExtent(Extent);
+		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}	
+}
+
+void AEnemyCharacter::DeactivateMeleeHitbox()
+{
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }

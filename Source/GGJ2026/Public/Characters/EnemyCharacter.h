@@ -10,16 +10,18 @@
 #include "Components/HealthComponent.h"
 #include "EnemyCharacter.generated.h"
 
+class UBoxComponent;
+
 UENUM(BlueprintType)
 enum class EEnemyType : uint8
 {
-	Maskless UMETA(DisplayName = "Maskless"),
-	Rabbit UMETA(DisplayName = "Rabbit"),
-	Bird UMETA(DisplayName = "Bird"),
-	Cat UMETA(DisplayName = "Cat"),
+	Maskless	UMETA(DisplayName = "Maskless"),
+	Rabbit		UMETA(DisplayName = "Rabbit"),
+	Bird		UMETA(DisplayName = "Bird"),
+	Cat			UMETA(DisplayName = "Cat"),
 };
 
-UCLASS()
+UCLASS(Abstract)
 class GGJ2026_API AEnemyCharacter : public APaperZDCharacter
 {
 	GENERATED_BODY()
@@ -31,14 +33,6 @@ public:
 protected:	
 	UPROPERTY(EditAnywhere)
 	float Damage;
-		
-	/** Component that detects incoming damage (The Body) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* HurtboxComponent;
-
-	/** Component that deals damage (The Weapon) - Enabled only during attacks */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* HitboxComponent;
 	
 	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	// UBoxComponent* Box;
@@ -56,6 +50,21 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	/** Component that detects incoming damage (The Body) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HurtboxComponent;
+
+	/** Component that deals damage (The Weapon) - Enabled only during attacks */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* HitboxComponent;
+	
+	/** The last valid direction the character was moving or inputting towards (World Space) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	FVector LastFacingDirection;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
+	float AnimDirection;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EEnemyType Type;
 	
@@ -88,4 +97,10 @@ public:
 	// To call the moment it dies
 	UFUNCTION(BlueprintCallable)
 	void OnDeath();
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ActivateMeleeHitbox(FName SocketName, FVector Extent = FVector(30.f, 30.f, 30.f));
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void DeactivateMeleeHitbox();
 };
