@@ -482,8 +482,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnGetUpFinished();
 	
+	/** Event called when the attack sequence starts. Use this for initial swing sounds (Whoosh). */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnAttackStarted(bool bHasHitEnemy, bool bHasMask);
 	
-	/** Event called when the attack sequence finishes. Provides info on hit result and mask state. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnAttackCompleted(bool bHasHitEnemy, bool bHasMask);
 

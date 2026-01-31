@@ -826,6 +826,10 @@ void AGGJCharacter::PerformAttack()
 	
 	// Set state to Attacking (AnimBP will pick up AttackComboIndex and play the correct anim)
 	ActionState = ECharacterActionState::Attacking;
+
+	// Trigger Attack Started Event (Audio/VFX)
+	const bool bHasMask = CurrentMaskType != EMaskType::None;
+	OnAttackStarted(false, bHasMask);
 	
 }
 
