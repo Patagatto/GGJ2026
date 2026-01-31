@@ -89,7 +89,7 @@ public:
 	
 	void ActivateEnemy();
 	
-	// To call at the end of the Death animation
+	UFUNCTION(BlueprintCallable)
 	void DeactivateEnemy();
 		
 	UFUNCTION()

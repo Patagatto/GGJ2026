@@ -42,6 +42,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Reset();
 	
+	UFUNCTION(BlueprintCallable)
+	void FinishHit();
+	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
