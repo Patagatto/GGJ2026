@@ -88,4 +88,10 @@ public:
 	// To call the moment it dies
 	UFUNCTION(BlueprintCallable)
 	void OnDeath();
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ActivateMeleeHitbox(FName SocketName, FVector Extent = FVector(30.f, 30.f, 30.f));
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void DeactivateMeleeHitbox();
 };
