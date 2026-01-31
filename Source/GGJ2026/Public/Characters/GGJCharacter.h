@@ -8,8 +8,6 @@
 #include "Items/MaskPickup.h"
 #include "GGJCharacter.generated.h"
 
-class UCameraComponent;
-class USpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
 class UBoxComponent;
@@ -48,12 +46,6 @@ public:
 	// COMPONENTS
 	// ========================================================================
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
-	
 	/** Component that detects incoming damage (The Body) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HurtboxComponent;
@@ -404,6 +396,12 @@ protected:
 	 */
 	AActor* FindBestTarget(FVector InputDirection);
 	
+	/** 
+	 * Helper to get the current view rotation (Shared Camera or Controller).
+	 * Replaces the old dependency on FollowCamera component.
+	 */
+	FRotator GetCameraRotation() const;
+
 	/**
 	 * Launches the character towards the target.
 	 * Calculates velocity to stop exactly near the target.

@@ -2,10 +2,8 @@
 
 
 #include "Characters/GGJCharacter.h"
-#include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PaperFlipbookComponent.h"
@@ -35,31 +33,6 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-
-	// --- Camera Boom Setup ---
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 5000.0f; // Distance for Top-Down view
-	CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 75.0f); // Slight offset
-	CameraBoom->SetUsingAbsoluteRotation(true); // Don't rotate arm with character
-	
-	// Adjusted camera angle to -45 degrees. This prevents the perspective from flattening vertical movement, ensuring consistent visual speed.
-	CameraBoom->SetRelativeRotation(FRotator(-45.0f, -90.0f, 0.0f)); 
-	
-	// Disable inheritance to prevent camera jitter during character rotation
-	CameraBoom->bInheritPitch = false;
-	CameraBoom->bInheritYaw = false;
-	CameraBoom->bInheritRoll = false;
-	CameraBoom->bDoCollisionTest = false; // Disable collision for 2D/Top-Down to prevent zooming in
-	CameraBoom->bEnableCameraLag = true;
-	CameraBoom->CameraLagSpeed = 5.0f;
-
-	// --- Follow Camera Setup ---
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-	FollowCamera->ProjectionMode = ECameraProjectionMode::Perspective;
-	FollowCamera->SetFieldOfView(10.0f);
-	FollowCamera->bUsePawnControlRotation = false;
 
 #pragma endregion
 
@@ -194,7 +167,7 @@ void AGGJCharacter::BeginPlay()
 
 	// Initialize LastFacingDirection based on the initial AnimDirection (180) and Camera Rotation
 	// This ensures we start with a valid direction even before moving
-	FRotator CameraRotation = FollowCamera->GetComponentRotation();
+	const FRotator CameraRotation = GetCameraRotation();
 	const float InitialYaw = CameraRotation.Yaw + AnimDirection;
 	LastFacingDirection = FRotator(0.0f, InitialYaw, 0.0f).Vector();
 }
@@ -287,6 +260,19 @@ void AGGJCharacter::PawnClientRestart()
 
 #pragma region Movement Logic
 
+FRotator AGGJCharacter::GetCameraRotation() const
+{
+	// Since we are using a Shared Camera (ViewTarget), we should query the PlayerCameraManager.
+	// In local multiplayer, Player 0's camera manager usually dictates the view if sharing screen,
+	// or we can use GetControlRotation() if the controller is updated by the view target.
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		return PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation() : FRotator(-45.f, -90.f, 0.f);
+	}
+	// Fallback if no controller yet
+	return FRotator(-45.f, -90.f, 0.f);
+}
+
 void AGGJCharacter::UpdateAnimationDirection()
 {
 	const FVector Velocity = GetVelocity();
@@ -298,7 +284,7 @@ void AGGJCharacter::UpdateAnimationDirection()
 		LastFacingDirection = Velocity.GetSafeNormal2D();
 	}
 	
-	const FRotator CameraRotation = FollowCamera->GetComponentRotation();
+	const FRotator CameraRotation = GetCameraRotation();
 	const FRotator TargetRotation = LastFacingDirection.ToOrientationRotator();
 
 	// Calculate the angle difference between the camera direction and velocity direction
@@ -334,7 +320,7 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 	{
 		// Calculate a movement direction based on Camera rotation.
 		// This ensures controls remain intuitive (W is always "Up" on screen) even if the camera rotates.
-		const FRotator Rotation = FollowCamera->GetComponentRotation();
+		const FRotator Rotation = GetCameraRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
@@ -589,7 +575,8 @@ AActor* AGGJCharacter::FindBestTarget(FVector InputDirection)
 	// Otherwise, use the visual facing direction of the sprite (Left or Right).
 	else 
 	{
-		FVector CameraRight = FollowCamera->GetRightVector();
+		const FRotator CamRot = GetCameraRotation();
+		FVector CameraRight = FRotationMatrix(CamRot).GetUnitAxis(EAxis::Y);
 		CameraRight.Z = 0.0f;
 		CameraRight.Normalize();
 
@@ -654,7 +641,8 @@ void AGGJCharacter::PerformLunge(AActor* Target)
 
 	// --- 1. Determine Final Destination ---
 	// Get the camera's right vector to define the "line" of combat.
-	FVector CameraRight = FollowCamera->GetRightVector();
+	const FRotator CamRot = GetCameraRotation();
+	FVector CameraRight = FRotationMatrix(CamRot).GetUnitAxis(EAxis::Y);
 	CameraRight.Z = 0.0f;
 	CameraRight.Normalize();
 
@@ -674,6 +662,9 @@ void AGGJCharacter::PerformLunge(AActor* Target)
 		// Player is on the left, so the destination is the point on the left.
 		DestinationPoint = Target->GetActorLocation() - (CameraRight * LungeStopDistance);
 	}
+
+	// Ensure the destination stays on the same vertical level as the player to prevent "hopping"
+	DestinationPoint.Z = GetActorLocation().Z;
 
 	// --- 2. Check if Lunge is Necessary ---
 	const FVector VectorToDestination = DestinationPoint - GetActorLocation();
@@ -892,7 +883,8 @@ void AGGJCharacter::PerformRoll()
 		// If standing still, roll in the direction we are facing visually.
 		// Since the sprite is 2D and flips Left/Right, we use the Camera's Right vector.
 		
-		FVector CameraRight = FollowCamera->GetRightVector();
+		const FRotator CamRot = GetCameraRotation();
+		FVector CameraRight = FRotationMatrix(CamRot).GetUnitAxis(EAxis::Y);
 		CameraRight.Z = 0.0f; // Ensure planar movement
 		CameraRight.Normalize();
 
