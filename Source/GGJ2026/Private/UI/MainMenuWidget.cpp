@@ -21,8 +21,9 @@ void UMainMenuWidget::StartGame1P()
 {
 	if (StartLevelName == FName("E_MainLevel"))
 	{
+		PlayAnimationForward(FadeAnimation);
 		// Start fading animation
-		Cast<UGGJGameInstance>(GetGameInstance())->PlayMode = EPlayMode::SinglePlayer;
+		Cast<UGGJGameInstance>(GetGameInstance())->SetPlayMode(EPlayMode::SinglePlayer);
 	}
 }
 
@@ -40,7 +41,7 @@ void UMainMenuWidget::StartGame2P()
 		{
 			PlayAnimationForward(FadeAnimation);
 			// FadeAnimation->BindToAnimationFinished(this, );
-			Cast<UGGJGameInstance>(GetGameInstance())->PlayMode = EPlayMode::MultiPlayer;
+			Cast<UGGJGameInstance>(GetGameInstance())->SetPlayMode(EPlayMode::MultiPlayer);
 		}
 	}
 }

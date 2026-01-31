@@ -3,3 +3,12 @@
 
 #include "Game/GGJGameInstance.h"
 
+void UGGJGameInstance::SetPlayMode(EPlayMode NewMode)
+{
+	PlayMode = NewMode;
+}
+
+EPlayMode UGGJGameInstance::GetPlayMode() const
+{
+	return PlayMode;
+}

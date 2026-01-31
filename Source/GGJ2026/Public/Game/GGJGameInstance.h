@@ -15,6 +15,15 @@ class GGJ2026_API UGGJGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 	
-public:
+protected:
 	EPlayMode PlayMode;
+	
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetPlayMode(EPlayMode NewMode);
+	
+	UFUNCTION(BlueprintCallable)
+	EPlayMode GetPlayMode() const;
+	
+	
 };

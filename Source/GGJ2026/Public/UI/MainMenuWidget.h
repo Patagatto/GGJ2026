@@ -12,6 +12,7 @@
 /**
  * 
  */
+UENUM(BlueprintType)
 enum class EPlayMode : uint8
 {
 	SinglePlayer,
@@ -54,6 +55,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	FName StartLevelName;
 	
+	// Animations
 	UPROPERTY(Transient, meta = (BindWidgetAnim))
 	UWidgetAnimation* WarningAnimation;
 	
