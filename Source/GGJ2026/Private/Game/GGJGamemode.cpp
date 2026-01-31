@@ -13,20 +13,6 @@
 AGGJGamemode::AGGJGamemode()
 {
 	TotalScore = 0;
-
-	// --- HARDCODED PAWN CLASS ---
-	// This is the definitive fix to ensure the correct Blueprint character is always spawned for all players,
-	// bypassing any potential conflicting settings in the editor.
-	// IMPORTANT: Make sure the path below matches the reference path of your character Blueprint.
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Blueprints/Characters/BP_GGJCharacter"));
-	if (PlayerPawnBPClass.Class != nullptr)
-	{
-		DefaultPawnClass = PlayerPawnBPClass.Class;
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("CRITICAL ERROR: Could not find BP_GGJCharacter at the specified path in GGJGamemode.cpp. Please check the path."));
-	}
 }
 
 
