@@ -2,11 +2,15 @@
 
 
 #include "Characters/EnemyCharacter.h"
-
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "PaperFlipbookComponent.h"
+#include "PaperFlipbook.h"
 #include "AI/EnemyAIController.h"
 #include "AI/EnemyManager.h"
+#include "Engine/OverlapResult.h"
 #include "Characters/GGJCharacter.h"
+#include "Items/MaskPickup.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/BoxComponent.h" 
 #include "Kismet/GameplayStatics.h"
@@ -14,9 +18,9 @@
 // Sets default values
 AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+{	
+	GetCapsuleComponent()->InitCapsuleSize(30.f, 85.0f);
+	GetCapsuleComponent()->SetUseCCD(true);
 	
 	// --- Character Rotation Setup ---
 	// Don't rotate when the controller rotates. Let that just affect the camera.
@@ -38,12 +42,11 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
 		
 	HurtboxComponent->SetupAttachment(GetSprite());
-	HurtboxComponent->SetBoxExtent(FVector(32.f, 32.f, 80.f));
+	HurtboxComponent->SetBoxExtent(FVector(20.f, 10.f, 40.f));
 	HurtboxComponent->SetCollisionObjectType(ECC_GameTraceChannel4);
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
 	HurtboxComponent->ComponentTags.Add(FName("Hurtbox"));
 	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
@@ -66,11 +69,12 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetupAttachment(GetSprite()); 
 	HitboxComponent->SetBoxExtent(FVector(30.f, 30.f, 30.f));
 	// Set the hitbox to use our custom "PlayerHitbox" channel
-	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel3);
+	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel5);
 	// It should ignore everything by default...
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	// ...except for Pawns, which it should overlap with.
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->ComponentTags.Add(FName("Hitbox"));
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 	
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
@@ -80,16 +84,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	if (HurtboxComponent)
-	{
-		HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-		HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap); // Detect Player Capsule/Hurtbox
-		HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap); // Detect Player Hitbox
-		HurtboxComponent->SetGenerateOverlapEvents(true);
-	}
-	
+		
 	if (HitboxComponent)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] HitboxComponent valid: %s"), 
@@ -102,7 +97,6 @@ void AEnemyCharacter::BeginPlay()
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);
-	
 }
 
 // Called every frame
@@ -166,7 +160,10 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 {
 	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	if (ActualDamage > 0.f && DamageCauser && DamageCauser->IsA<AGGJCharacter>())
+	
+	const bool bValidSource = DamageCauser && (DamageCauser->IsA<AGGJCharacter>() || DamageCauser->IsA<AMaskPickup>());
+
+	if (ActualDamage > 0.f && bValidSource)
 	{
 		HealthComp->ApplyDamage(ActualDamage);
 		if(HealthComp->IsActorDead())
