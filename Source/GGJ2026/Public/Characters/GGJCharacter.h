@@ -480,7 +480,7 @@ public:
 	void OnGetUpFinished();
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
-	void OnEnemyHit(bool HasMask);
+	void OnEnemyHit(bool HasHit, bool HasMask);
 	
 
 	/** 

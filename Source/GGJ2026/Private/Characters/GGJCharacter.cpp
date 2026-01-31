@@ -344,6 +344,9 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 		// Standard Action Game Roll: You commit to the direction. No steering during the roll.
 		if (!IgnoreState && ActionState != ECharacterActionState::None) return;
 
+		// Prevent movement while charging a mask throw
+		if (ActionState == ECharacterActionState::ChargeMask) return;
+
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -377,14 +380,8 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 		// Apply Damage
 		// Controller is the Instigator (who caused it), this is the DamageCauser
 		UGameplayStatics::ApplyDamage(OtherActor, DamageToDeal, GetController(), this, UDamageType::StaticClass());
-		if (CurrentMaskType == EMaskType::None)
-		{
-			OnEnemyHit(false);
-		}
-		else
-		{
-			OnEnemyHit(true);
-		}
+		OnEnemyHit(true, CurrentMaskType != EMaskType::None);
+		
 		
 		// If wearing a mask, extend its duration
 		if (bExtendsDurationOnHit)
@@ -403,6 +400,10 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 
 		// Debug Log
 		// UE_LOG(LogTemp, Warning, TEXT("Hit %s for %f damage"), *OtherActor->GetName(), DamageToDeal);
+	}
+	else
+	{
+		OnEnemyHit(false, CurrentMaskType != EMaskType::None);
 	}
 }
 
@@ -957,6 +958,12 @@ void AGGJCharacter::Interact()
 	// If we have a valid mask to pick up
 	if (OverlappingMask)
 	{
+		// If the mask is flying (thrown by someone), catch it!
+		if (OverlappingMask->IsFlying())
+		{
+			// Catching logic is the same as equipping
+			EquipMask(OverlappingMask);
+		}
 		EquipMask(OverlappingMask);
 	}
 }
@@ -964,14 +971,47 @@ void AGGJCharacter::Interact()
 void AGGJCharacter::ChargeMask()
 {
 	if (CurrentMaskType == EMaskType::None) return;
+	if (ActionState != ECharacterActionState::None && ActionState != ECharacterActionState::ChargeMask) return;
 	
-		
-	
+	// Set state to stop movement
+	ActionState = ECharacterActionState::ChargeMask;
+	GetCharacterMovement()->StopMovementImmediately();
+
+	// Optional: Rotate character towards input while charging
+	if (GetLastMovementInputVector().SizeSquared() > 0.01f)
+	{
+		LastFacingDirection = GetLastMovementInputVector().GetSafeNormal();
+		UpdateAnimationDirection();
+	}
 }
 
 void AGGJCharacter::LaunchMask()
 {
+	if (ActionState != ECharacterActionState::ChargeMask) return;
+
+	// Reset State
+	ActionState = ECharacterActionState::None;
+
+	if (CurrentMaskType == EMaskType::None) return;
+
+	// Spawn the mask pickup
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
 	
+	// Spawn slightly in front to avoid clipping
+	FVector SpawnLoc = GetActorLocation() + (LastFacingDirection * 60.0f);
+	
+	AMaskPickup* ThrownMask = GetWorld()->SpawnActor<AMaskPickup>(AMaskPickup::StaticClass(), SpawnLoc, FRotator::ZeroRotator, SpawnParams);
+	if (ThrownMask)
+	{
+		ThrownMask->MaskType = CurrentMaskType;
+		ThrownMask->UpdateVisuals(RedRabbitMaskFlipbook, GreenBirdMaskFlipbook, BlueCatMaskFlipbook);
+		ThrownMask->InitializeThrow(LastFacingDirection, this);
+		
+		// Remove mask from player (Unequip logic without destroying the actor we just spawned)
+		UnequipMask(); 
+	}
 }
 
 void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
@@ -1029,8 +1069,9 @@ void AGGJCharacter::UnequipMask()
 	CurrentMaskDuration = 0.0f;
 	GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
 	MaskSprite->SetFlipbook(nullptr); // Hide the mask by removing its flipbook
-
-	UE_LOG(LogTemp, Warning, TEXT("Mask broke!"));
+	
+	// Note: We do NOT destroy the pickup here if called from LaunchMask, 
+	// because LaunchMask spawns a NEW actor. This function just clears local state.
 }
 
 void AGGJCharacter::UpdateMaskDuration()
