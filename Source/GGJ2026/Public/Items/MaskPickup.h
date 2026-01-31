@@ -8,6 +8,7 @@
 
 class UPaperFlipbookComponent;
 class UBoxComponent;
+class UProjectileMovementComponent;
 
 /** Enum to define the different types of masks available. */
 UENUM(BlueprintType)
@@ -32,8 +33,36 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UBoxComponent* InteractionVolume;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UProjectileMovementComponent* ProjectileMovement;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mask|Combat")
+	float ThrowDamage = 30;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mask|Combat")
+	float RotationSpeed = 720.0f;
+	
+	void InitializeThrow(FVector Direction, AActor* InShooter);
+	
+	bool IsFlying() const { return bIsFlying; }
+	
+	void UpdateVisuals(class UPaperFlipbook* RedBook, UPaperFlipbook* GreenBook,UPaperFlipbook* BlueBook);
 
 	/** The type of this mask, editable in the editor for each instance. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mask")
 	EMaskType MaskType = EMaskType::RedRabbit;
+	
+protected:
+	virtual void Tick(float DeltaTime) override;
+	virtual void BeginPlay() override;
+	
+	UFUNCTION()
+	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent,int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+private:
+	bool bIsFlying = false;
+	UPROPERTY()
+	AActor* Shooter;
+	
+	void CheckOffScreen();
 };

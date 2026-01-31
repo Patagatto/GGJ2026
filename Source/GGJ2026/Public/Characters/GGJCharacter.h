@@ -357,6 +357,9 @@ protected:
 	/** A reference to the closest mask the player can pick up. */
 	UPROPERTY()
 	AMaskPickup* OverlappingMask = nullptr;
+	
+	/** Flag to prevent immediate throwing when picking up a mask in the same input press. */
+	bool bInputConsumed = false;
 
 	// Lunge State
 	bool bIsLunging = false;
@@ -480,7 +483,10 @@ public:
 	void OnGetUpFinished();
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
-	void OnEnemyHit(bool HasMask);
+	void OnEnemyHit(bool HasHit, bool HasMask);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnEnemymiss(bool HasHit, bool HasMask);
 	
 
 	/** 
