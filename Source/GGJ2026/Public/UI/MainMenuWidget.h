@@ -11,6 +11,12 @@
 /**
  * 
  */
+enum class EPlayMode : uint8
+{
+	SinglePlayer,
+	MultiPlayer,
+};
+
 UCLASS()
 class GGJ2026_API UMainMenuWidget : public UUserWidget
 {
@@ -24,7 +30,10 @@ protected:
 	UImage* BackGround;
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	UButton* StartButton;
+	UButton* StartButton1P;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	UButton* StartButton2P;
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UButton* OptionsButton;
@@ -35,12 +44,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	FName StartLevelName;
 	
+	EPlayMode Mode;
+	
 	virtual void NativeConstruct() override;
 
 public:
+	UFUNCTION(BlueprintCallable)
+	void StartGame1P();
 	
 	UFUNCTION(BlueprintCallable)
-	void StartGame();
+	void StartGame2P();
 	
+	UFUNCTION(BlueprintCallable)
 	void QuitGame();
 };
