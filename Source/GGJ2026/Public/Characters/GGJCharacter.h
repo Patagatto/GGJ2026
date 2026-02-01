@@ -497,6 +497,9 @@ public:
 	void OnMaskCaught();
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
+	void OnMaskLaunched();
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
 	void OnMaskPickUp();
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")

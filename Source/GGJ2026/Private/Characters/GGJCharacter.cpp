@@ -159,7 +159,7 @@ void AGGJCharacter::BeginPlay()
 	GetSprite()->SetRelativeLocation(FVector(0.0f, 0.0f, GetSprite()->GetRelativeLocation().Z));
 
 	// Initialize Health
-	CurrentHealth = 50;  //MaxHealth;
+	CurrentHealth = MaxHealth;
 
 	// Reset Combat States on Spawn
 	ActionState = ECharacterActionState::None;
@@ -204,8 +204,8 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	// DEBUG: Print values to screen to verify C++ is working
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | MaxSpeed: %.0f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, GetCharacterMovement()->MaxWalkSpeed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
-		GEngine->AddOnScreenDebugMessage(3, 0.0f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f"), CurrentHealth));
+		//GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, FString::Printf(TEXT("Speed: %.2f | MaxSpeed: %.0f | Moving: %d | Dir: %.2f | Jumping:%d | Z: %.2f"), Speed, GetCharacterMovement()->MaxWalkSpeed, bIsMoving, AnimDirection, bIsJumping, VerticalVelocity));
+		//GEngine->AddOnScreenDebugMessage(3, 0.0f, FColor::Green, FString::Printf(TEXT("Current Health: %.1f"), CurrentHealth));
 	}
 
 	UpdateAnimationDirection();
@@ -1134,6 +1134,7 @@ void AGGJCharacter::LaunchMask()
 		ThrownMask->UpdateVisuals(RedRabbitMaskFlipbook, GreenBirdMaskFlipbook, BlueCatMaskFlipbook);
 		ThrownMask->InitializeThrow(LastFacingDirection, this);
 		
+		OnMaskLaunched();
 		// Remove mask from player (Unequip logic without destroying the actor we just spawned)
 		UnequipMask(); 
 	}
@@ -1217,7 +1218,7 @@ void AGGJCharacter::UpdateMaskDuration()
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Cyan, FString::Printf(TEXT("Mask Duration: %.1f s (Drain Rate: x%.2f)"), CurrentMaskDuration, DrainRateMultiplier));
+		//GEngine->AddOnScreenDebugMessage(1, 1.0f, FColor::Cyan, FString::Printf(TEXT("Mask Duration: %.1f s (Drain Rate: x%.2f)"), CurrentMaskDuration, DrainRateMultiplier));
 	}
 
 	if (CurrentMaskDuration <= 0.0f)
@@ -1234,7 +1235,7 @@ void AGGJCharacter::ExtendMaskDuration()
 
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(2, 1.5f, FColor::Green, FString::Printf(TEXT("HIT! Mask time extended to %.1f s"), CurrentMaskDuration));
+			//GEngine->AddOnScreenDebugMessage(2, 1.5f, FColor::Green, FString::Printf(TEXT("HIT! Mask time extended to %.1f s"), CurrentMaskDuration));
 		}
 	}
 }

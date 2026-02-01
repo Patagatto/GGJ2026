@@ -49,7 +49,7 @@ void ASharedCamera::Tick(float DeltaTime)
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(50, 0.0f, FColor::Cyan, FString::Printf(TEXT("CAMERA DIST: %.0f | BASE: %.0f | MAX: %.0f"), FVector::Dist(GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 100), BaseDistance, MaxZoomDistance));
+		//GEngine->AddOnScreenDebugMessage(50, 0.0f, FColor::Cyan, FString::Printf(TEXT("CAMERA DIST: %.0f | BASE: %.0f | MAX: %.0f"), FVector::Dist(GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 100), BaseDistance, MaxZoomDistance));
 	}
 
 	UpdateCameraPosition(DeltaTime);
