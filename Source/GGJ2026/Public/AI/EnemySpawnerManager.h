@@ -61,5 +61,6 @@ public:
 	
 	void SpawnEnemy();
 	
+	UFUNCTION(BlueprintCallable)
 	void ResetEnemy(AEnemyCharacter* Enemy);
 };
