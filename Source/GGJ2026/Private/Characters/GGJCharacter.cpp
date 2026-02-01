@@ -110,6 +110,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 
+	
 	// Bind the overlap event
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnHitboxOverlap);
 
@@ -438,7 +439,7 @@ void AGGJCharacter::OnGetUpFinished()
 	if (ActionState == ECharacterActionState::GettingUp)
 	{
 		ActionState = ECharacterActionState::None;
-		DisableInvincibility();
+		GetWorld()->GetTimerManager().SetTimer(InvincibilityOnGettingUpHandle, this, &AGGJCharacter::DisableInvincibility, InvincibilityTimeAfterKnock, false);
 	}
 }
 
@@ -483,6 +484,7 @@ void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
 
 	// Clear any pending invincibility timer from previous hits so it doesn't expire prematurely while grounded.
 	GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
+	GetWorld()->GetTimerManager().ClearTimer(InvincibilityOnGettingUpHandle);
 
 	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
 	bIsInvincible = true;
@@ -528,6 +530,12 @@ void AGGJCharacter::HandleHurt(AActor* DamageCauser)
 		const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
 		LaunchCharacter(KnockbackDir * KnockbackStrength, true, true);
 	}
+	else
+	{
+		// Fallback: Apply small knockback opposite to facing if damage source is unknown.
+		// This ensures the character is physically "unstuck" from the StopMovementImmediately() call in StartCharging.
+		LaunchCharacter(-LastFacingDirection * (KnockbackStrength * 0.5f), true, true);
+	}
 
 	// Set Stun Timer (When to regain control)
 	GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
@@ -544,6 +552,10 @@ void AGGJCharacter::HandleHurt(AActor* DamageCauser)
 
 void AGGJCharacter::HandleDeath()
 {
+	// FIX: Interrupt any active combat actions (like Charging) BEFORE setting state to Dead.
+	// This ensures OnChargeEnded is called to stop sounds/VFX.
+	InterruptCombatActions();
+
 	ActionState = ECharacterActionState::Dead;
 	
 	// 1. Disable Input immediately
@@ -796,7 +808,6 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 	// Move hitbox to the socket defined in the current Flipbook frame.
 	// SnapToTargetNotIncludingScale keeps hitbox scale independent of sprite (avoids distortion).
 	HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
-	
 	// Clear the list of actors hit from the previous swing.
 	HitActors.Empty();
 
@@ -900,6 +911,8 @@ void AGGJCharacter::StartCharging()
 	GetWorld()->GetTimerManager().ClearTimer(ComboTimerHandle);
 }
 
+
+
 void AGGJCharacter::UpdateCharging(const FInputActionValue& Value)
 {
 	if (ActionState != ECharacterActionState::Charging) return;
@@ -960,7 +973,10 @@ void AGGJCharacter::PerformRoll()
 	// Cannot roll if Dead, Hurt, already Rolling, or on cooldown.
 	// Can roll from None, Attacking, Charging (Interrupting them).
 	if (ActionState == ECharacterActionState::Dead || 
-		ActionState == ECharacterActionState::Hurt || 
+		ActionState == ECharacterActionState::Hurt ||
+		ActionState == ECharacterActionState::Grounded ||
+		ActionState == ECharacterActionState::KnockedDown ||
+		ActionState == ECharacterActionState::GettingUp ||
 		ActionState == ECharacterActionState::Rolling ||
 		bIsRollOnCooldown)
 	{

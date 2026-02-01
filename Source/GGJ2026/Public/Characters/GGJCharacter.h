@@ -103,6 +103,9 @@ public:
 	/** Duration of invincibility after taking damage (seconds) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float InvincibilityDuration = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
+	float InvincibilityTimeAfterKnock = 2.0f;
 
 	/** Duration of stun (inability to move) after taking damage (seconds) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
@@ -328,6 +331,7 @@ protected:
 	FTimerHandle MaskDurationTimerHandle;
 	FTimerHandle HitCountResetTimerHandle;
 	FTimerHandle GroundedTimerHandle;
+	FTimerHandle InvincibilityOnGettingUpHandle;
 	float DefaultBrakingDeceleration;
 	float DefaultRollCooldown;
 	float DefaultMaxWalkSpeed;
@@ -540,6 +544,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ActivateMask(FName SocketName);
+
 
 private:
 	/** Helper to reset time dilation back to normal. */
