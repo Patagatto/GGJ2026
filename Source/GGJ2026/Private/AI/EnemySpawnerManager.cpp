@@ -49,6 +49,20 @@ void UEnemySpawnerManager::InitSpawn()
 {
 	TArray<AActor*> Spawners;
 	TArray<AEnemyCharacter*> Enemies;
+	TArray<EEnemyType> TypeList;
+	
+	int32 CountType0 = FMath::RoundToInt(MaxEnemies * 0.40f);
+	int32 CountType1 = FMath::RoundToInt(MaxEnemies * 0.20f);
+	int32 CountType2 = FMath::RoundToInt(MaxEnemies * 0.20f);
+    int32 CountType3 = MaxEnemies - (CountType0 + CountType1 + CountType2);
+	
+	for (int32 i = 0; i < CountType0; i++) TypeList.Add(EEnemyType::Maskless);
+	for (int32 i = 0; i < CountType1; i++) TypeList.Add(EEnemyType::Rabbit);
+	for (int32 i = 0; i < CountType2; i++) TypeList.Add(EEnemyType::Bird);
+	for (int32 i = 0; i < CountType3; i++) TypeList.Add(EEnemyType::Cat);
+	
+	int32 CurrentTypeIndex = 0;
+	
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AEnemySpawner::StaticClass(), Spawners);
 	
 	if (EnemyClass && Spawners.Num() > 0)
@@ -65,6 +79,7 @@ void UEnemySpawnerManager::InitSpawn()
 				AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
 				Enemy->SpawnLocation = Cast<AEnemySpawner>(Spawners[i])->GetSpawnLocation();
 				Enemy->SetActorLocation(Enemy->SpawnLocation);
+				Enemy->Type = TypeList[CurrentTypeIndex++];
 				Enemies.Add(Enemy);				
 			}
 		}

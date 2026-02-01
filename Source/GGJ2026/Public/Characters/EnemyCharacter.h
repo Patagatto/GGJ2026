@@ -66,7 +66,7 @@ public:
 	FVector LastFacingDirection;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
-	float AnimDirection;
+	float AnimDirection = 180.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EEnemyType Type;
@@ -83,6 +83,9 @@ public:
 	/** Event called when the attack hitbox is deactivated. bHitPlayer is true if damage was dealt. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnAttackCompleted(bool bHitPlayer);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnEnemyHit();
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -108,9 +111,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void OnDeath();
 	
+	// Hitbox Functions
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ActivateMeleeHitbox(FName SocketName, FVector Extent = FVector(30.f, 30.f, 30.f));
 	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void DeactivateMeleeHitbox();
+	
+	void UpdateAnimationDirection();
+	
+	FRotator GetCameraRotation() const;
 };
