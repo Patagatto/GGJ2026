@@ -50,23 +50,23 @@ protected:
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UButton* QuitButton;
-	
-	// Variables		
-	UPROPERTY(EditDefaultsOnly)
-	FName StartLevelName;
-	
-	// Animations
-	UPROPERTY(Transient, meta = (BindWidgetAnim))
-	UWidgetAnimation* WarningAnimation;
-	
-	UPROPERTY(Transient, meta = (BindWidgetAnim))
-	UWidgetAnimation* FadeAnimation;
-	
+			
 	EPlayMode Mode;
 	
 	virtual void NativeConstruct() override;
 
 public:
+	// Variables		
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName StartLevelName;
+	
+	// Animations
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Transient, meta = (BindWidgetAnim))
+	UWidgetAnimation* WarningAnimation;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Transient, meta = (BindWidgetAnim))
+	UWidgetAnimation* FadeAnimation;
+	
 	UFUNCTION(BlueprintCallable)
 	void StartGame1P();
 	
