@@ -136,13 +136,21 @@ void AEnemyCharacter::DeactivateEnemy()
 	
 	if (Type != EEnemyType::None && PickupClass)
 	{
-		AMaskPickup* Mask = Cast<AMaskPickup>(GetWorld()->SpawnActor(PickupClass));
-		if (Mask)
+		TArray<AActor*> Masks;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), PickupClass, Masks);
+		
+		if (Masks.Num() < 5)
 		{
-			Mask->SetActorLocation(GetActorLocation());
-			Mask->MaskType = Type;
-			Mask->UpdateVisuals(RedRabbitMaskFlipbook, GreenBirdMaskFlipbook, BlueCatMaskFlipbook);
+			AMaskPickup* PickMask = Cast<AMaskPickup>(GetWorld()->SpawnActor(PickupClass));
+            		
+            if (PickMask)
+            {
+            	PickMask->SetActorLocation(GetActorLocation());
+            	PickMask->MaskType = Type;
+            	PickMask->UpdateVisuals(RedRabbitMaskFlipbook, GreenBirdMaskFlipbook, BlueCatMaskFlipbook);
+            }
 		}
+		
 	}
 	
 	SetActorLocation(SpawnLocation);
