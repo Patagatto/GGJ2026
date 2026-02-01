@@ -495,6 +495,13 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
 	void OnMaskPickUp();
 	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
+	void OnPlayerHit(bool bIsKnockDown);
+	
+	/** Event called when the player's invincibility period ends. Use this to stop flashing effects. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
+	void OnInvincibilityEnded();
+
 	/** Event called when the player is knocked down (starts falling). Use this to play sound/VFX in Blueprint. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnKnockedDown();

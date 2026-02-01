@@ -445,7 +445,8 @@ void AGGJCharacter::OnGetUpFinished()
 void AGGJCharacter::DisableInvincibility()
 {
 	bIsInvincible = false;
-	// Optional: Stop flashing visual effect here
+	// Notify Blueprint to stop flashing visuals
+	OnInvincibilityEnded();
 }
 
 void AGGJCharacter::InterruptCombatActions()
@@ -479,6 +480,9 @@ void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
 
 	// Clear any pending stun recovery, as we are now in a full knockdown sequence.
 	GetWorld()->GetTimerManager().ClearTimer(StunTimerHandle);
+
+	// Clear any pending invincibility timer from previous hits so it doesn't expire prematurely while grounded.
+	GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
 
 	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
 	bIsInvincible = true;
@@ -601,8 +605,14 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	InterruptCombatActions();
 
 	CurrentHitCount++;
+	
+	// Determine if this hit causes a knockdown
+	const bool bIsKnockdown = (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown);
 
-	if (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown)
+	// Trigger generic hit feedback (Flash, Sound) regardless of the resulting state
+	OnPlayerHit(bIsKnockdown);
+
+	if (bIsKnockdown)
 	{
 		HandleKnockdown(DamageCauser);
 	}
