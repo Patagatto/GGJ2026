@@ -17,6 +17,7 @@
 #include "PaperFlipbook.h"
 #include "GameFramework/DamageType.h"
 #include "InputMappingContext.h"
+#include "Game/GGJGamemode.h"
 
 
 AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
@@ -566,6 +567,12 @@ void AGGJCharacter::HandleDeath()
 
 	// 2. Trigger Blueprint Event (Play Animation, Sound, VFX)
 	OnPlayerDied();
+	
+	// Notify GameMode to check for Game Over
+	if (AGGJGamemode* GM = Cast<AGGJGamemode>(UGameplayStatics::GetGameMode(this)))
+	{
+		GM->CheckPlayerStatus();
+	}
 
 	// 3. Slow Motion Effect (Dramatic Death)
 	// In local multiplayer, this affects BOTH players as they share the world time.

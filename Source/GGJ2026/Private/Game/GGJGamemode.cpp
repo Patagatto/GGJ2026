@@ -8,6 +8,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/GameViewportClient.h"
 #include "Camera/SharedCamera.h"
+#include "Characters/GGJCharacter.h"
 
 AGGJGamemode::AGGJGamemode()
 {
@@ -61,6 +62,30 @@ void AGGJGamemode::InitializeSecondPlayer()
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("StartSplitScreenSession: Failed to create Player 1. Error: %s"), *ErrorMessage);
+	}
+}
+
+
+
+void AGGJGamemode::CheckPlayerStatus()
+{
+	TArray<AActor*> Players;
+	UGameplayStatics::GetAllActorsOfClass(this, AGGJCharacter::StaticClass(), Players);
+
+	bool bAnyAlive = false;
+	for (AActor* Actor : Players)
+	{
+		AGGJCharacter* Player = Cast<AGGJCharacter>(Actor);
+		if (Player && Player->CurrentHealth > 0.0f)
+		{
+			bAnyAlive = true;
+			break;
+		}
+	}
+
+	if (!bAnyAlive)
+	{
+		OnAllPlayersDead();
 	}
 }
 

@@ -26,6 +26,14 @@ public:
 	/** Initializes the second local player for the session. */
 	UFUNCTION(BlueprintCallable, Category = "Player")
 	void InitializeSecondPlayer();
+
+	/** Checks if any players remain alive. Triggers OnAllPlayersDead if none found. */
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void CheckPlayerStatus();
+
+	/** Event called when all players are dead (Game Over). */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Game Flow")
+	void OnAllPlayersDead();
 	
 protected:
 	virtual void BeginPlay() override;
