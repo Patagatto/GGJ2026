@@ -409,7 +409,9 @@ void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AA
 
 void AGGJCharacter::OnStunFinished()
 {
-	if (ActionState != ECharacterActionState::Dead)
+	// Only return to None if we are still in the Hurt state.
+	// If we transitioned to KnockedDown or Dead, this timer shouldn't override it.
+	if (ActionState == ECharacterActionState::Hurt)
 	{
 		ActionState = ECharacterActionState::None;
 	}
@@ -420,6 +422,9 @@ void AGGJCharacter::OnGroundedTimerFinished()
 	if (ActionState == ECharacterActionState::Grounded)
 	{
 		ActionState = ECharacterActionState::GettingUp;
+		
+		// Trigger Blueprint event for visuals
+		OnGettingUp();
 	}
 }
 
@@ -472,24 +477,41 @@ void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
 	// We've been knocked down, so the hit combo is over. Clear the reset timer.
 	GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);
 
+	// Clear any pending stun recovery, as we are now in a full knockdown sequence.
+	GetWorld()->GetTimerManager().ClearTimer(StunTimerHandle);
+
 	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
 	bIsInvincible = true;
 
 	// Trigger Blueprint Event for sound/VFX
 	OnKnockedDown();
 
+	FVector KnockbackDir;
+
 	if (DamageCauser)
 	{
-		const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
-		const FVector FaceDir = -KnockbackDir;
+		KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
 
 		// Force visual facing direction towards the enemy
-		LastFacingDirection = FaceDir;
+		LastFacingDirection = -KnockbackDir;
 		UpdateAnimationDirection();
-
-		// Get pushed away from the enemy
-		LaunchCharacter(KnockbackDir * KnockdownPushStrength, true, true);
 	}
+	else
+	{
+		// Fallback: Knockback opposite to current facing if damage source is unknown
+		KnockbackDir = -LastFacingDirection;
+	}
+
+	// Stop any previous movement (walking/sliding) to ensure the launch vector is clean
+	GetCharacterMovement()->StopMovementImmediately();
+
+	// Get pushed away from the enemy.
+	// IMPORTANT: Add Z velocity (Vertical Bump) to force 'Falling' state.
+	// This guarantees that the 'Landed' event will eventually fire to transition to 'Grounded'.
+	FVector LaunchVelocity = KnockbackDir * KnockdownPushStrength;
+	LaunchVelocity.Z = 400.0f; 
+
+	LaunchCharacter(LaunchVelocity, true, true);
 }
 
 void AGGJCharacter::HandleHurt(AActor* DamageCauser)
@@ -505,6 +527,11 @@ void AGGJCharacter::HandleHurt(AActor* DamageCauser)
 
 	// Set Stun Timer (When to regain control)
 	GetWorld()->GetTimerManager().SetTimer(StunTimerHandle, this, &AGGJCharacter::OnStunFinished, HitStunDuration, false);
+
+	// FIX: Enable temporary Invincibility after a normal hit.
+	// This prevents getting hit 60 times a second inside an enemy hitbox and allows the Hurt animation to play.
+	bIsInvincible = true;
+	GetWorld()->GetTimerManager().SetTimer(InvincibilityTimerHandle, this, &AGGJCharacter::DisableInvincibility, InvincibilityDuration, false);
 
 	// Start a timer to reset the hit counter if we don't get hit again soon.
 	GetWorld()->GetTimerManager().ClearTimer(HitCountResetTimerHandle);

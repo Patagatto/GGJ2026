@@ -178,6 +178,14 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		{
 			OnDeath();
 		}
+		else
+		{
+			if (DamageCauser)
+			{
+				const FVector KnockbackDir = (GetActorLocation() - DamageCauser->GetActorLocation()).GetSafeNormal2D();
+				LaunchCharacter(KnockbackDir * KnockBackStrenghth, true, true);
+			}
+		}
 	}
 	
 	return ActualDamage;

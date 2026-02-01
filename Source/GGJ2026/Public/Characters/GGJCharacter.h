@@ -327,7 +327,6 @@ protected:
 	FTimerHandle RollCooldownTimerHandle;
 	FTimerHandle MaskDurationTimerHandle;
 	FTimerHandle HitCountResetTimerHandle;
-	FTimerHandle GetUpTimerHandle;
 	FTimerHandle GroundedTimerHandle;
 	float DefaultBrakingDeceleration;
 	float DefaultRollCooldown;
@@ -511,6 +510,9 @@ public:
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Outline")
 	void OnMaskChanged(EMaskType MaskType);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Outline")
+	void OnGettingUp();
 
 	/** 
 	 * Activates the combat hitbox.

@@ -73,6 +73,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsAttacking = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+	float KnockBackStrenghth = 3000.0f;
 		
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FVector SpawnLocation;
