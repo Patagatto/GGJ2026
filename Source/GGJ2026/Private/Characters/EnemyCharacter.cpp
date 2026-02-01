@@ -95,13 +95,17 @@ void AEnemyCharacter::BeginPlay()
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);
+	
+	const FRotator CameraRotation = GetCameraRotation();
+	const float InitialYaw = CameraRotation.Yaw + AnimDirection;
+	LastFacingDirection = FRotator(0.0f, InitialYaw, 0.0f).Vector();
 }
 
 // Called every frame
 void AEnemyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	UpdateAnimationDirection();
 }
 
 void AEnemyCharacter::ActivateEnemy()
@@ -168,12 +172,13 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 {
 	const float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	
 	const bool bValidSource = DamageCauser && (DamageCauser->IsA<AGGJCharacter>() || DamageCauser->IsA<AMaskPickup>());
 
 	if (ActualDamage > 0.f && bValidSource)
 	{
 		HealthComp->ApplyDamage(ActualDamage);
+		OnEnemyHit();
+		
 		if(HealthComp->IsActorDead())
 		{
 			OnDeath();
@@ -252,4 +257,46 @@ void AEnemyCharacter::DeactivateMeleeHitbox()
 	
 	// Trigger the Blueprint event with the result of the attack
 	OnAttackCompleted(bHasHitPlayer);
+}
+
+void AEnemyCharacter::UpdateAnimationDirection()
+{
+	const FVector Velocity = GetVelocity();
+
+	// Update LastFacingDirection from Velocity if moving significantly.
+	// If not moving, LastFacingDirection retains the last Input (updated in ApplyMovementInput).
+	if (Velocity.SizeSquared2D() > 1.0f)
+	{
+		LastFacingDirection = Velocity.GetSafeNormal2D();
+	}
+	
+	const FRotator CameraRotation = GetCameraRotation();
+	const FRotator TargetRotation = LastFacingDirection.ToOrientationRotator();
+
+	// Calculate the angle difference between the camera direction and velocity direction
+	// This allows the AnimBP to select the correct directional animation (Front, Back, Side)
+	const float DeltaYaw = FRotator::NormalizeAxis(TargetRotation.Yaw - CameraRotation.Yaw);
+
+	AnimDirection = DeltaYaw;
+
+	// Flip sprite based on movement direction relative to the camera.
+	// DeltaYaw is approx -90 for left (flip), +90 for right (normal).
+	if (DeltaYaw < -5.0f && DeltaYaw > -175.0f)
+	{
+		GetSprite()->SetRelativeScale3D(FVector(-1.0f, 1.0f, 1.0f));
+	}
+	else
+	{
+		GetSprite()->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+	}
+}
+
+FRotator AEnemyCharacter::GetCameraRotation() const
+{
+	if (APlayerController* PC = Cast<APlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+	{
+		return PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraRotation() : FRotator(-45.f, -90.f, 0.f);
+	}
+	// Fallback if no controller yet
+	return FRotator(-45.f, -90.f, 0.f);
 }
