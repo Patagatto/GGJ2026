@@ -114,6 +114,11 @@ void UEnemySpawnerManager::SetSpawnTimer()
 	GetWorld()->GetTimerManager().SetTimer(SpawnTimer, this, &UEnemySpawnerManager::SpawnEnemy, SpawnRate, true);
 }
 
+void UEnemySpawnerManager::ClearSpawnTimer()
+{
+	GetWorld()->GetTimerManager().ClearTimer(SpawnTimer);
+}
+
 void UEnemySpawnerManager::SpawnEnemy()
 {
 	/* if (!EnemyPool.IsEmpty())
