@@ -126,15 +126,18 @@ void UEnemySpawnerManager::SpawnEnemy()
 	if (ActiveEnemies.Num() < MaxEnemies)
 	{
 		AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
-		Enemy->SpawnLocation = Cast<AEnemySpawner>(EnemySpawners[FMath::RandRange(0, EnemySpawners.Num()-1)])->GetSpawnLocation();
-		Enemy->SetActorLocation(Enemy->SpawnLocation);
-		if (TypeIdx == MaxEnemies)
+		if (Enemy)
 		{
-			TypeIdx = 0;
-		}
-		Enemy->Type = EnemyTypeList[TypeIdx++];
-		Enemy->ActivateEnemy();
-		ActiveEnemies.Add(Enemy);	
+			Enemy->SpawnLocation = Cast<AEnemySpawner>(EnemySpawners[FMath::RandRange(0, EnemySpawners.Num()-1)])->GetSpawnLocation();
+			Enemy->SetActorLocation(Enemy->SpawnLocation);
+			if (TypeIdx == MaxEnemies)
+			{
+				TypeIdx = 0;
+			}
+			Enemy->Type = EnemyTypeList[TypeIdx++];
+			Enemy->ActivateEnemy();
+			ActiveEnemies.Add(Enemy);
+		}	
 	}
 }
 
