@@ -12,7 +12,7 @@ class UProjectileMovementComponent;
 
 /** Enum to define the different types of masks available. */
 UENUM(BlueprintType)
-enum class EMaskType : uint8
+enum class EEnemyType : uint8
 {
 	None		UMETA(DisplayName = "None"),
 	RedRabbit	UMETA(DisplayName = "Red Rabbit"),
@@ -55,7 +55,7 @@ public:
 
 	/** The type of this mask, editable in the editor for each instance. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mask")
-	EMaskType MaskType = EMaskType::RedRabbit;
+	EEnemyType MaskType = EEnemyType::RedRabbit;
 	
 protected:
 	virtual void Tick(float DeltaTime) override;

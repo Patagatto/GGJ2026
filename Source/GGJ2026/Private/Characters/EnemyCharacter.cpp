@@ -131,9 +131,21 @@ void AEnemyCharacter::DeactivateEnemy()
 	
 	// Stop AI Logic
 	if (AIController) AIController->DeactivateEnemyBT();
-	SetActorLocation(SpawnLocation);
 	
 	IsReset = true;
+	
+	if (Type != EEnemyType::None && PickupClass)
+	{
+		AMaskPickup* Mask = Cast<AMaskPickup>(GetWorld()->SpawnActor(PickupClass));
+		if (Mask)
+		{
+			Mask->SetActorLocation(GetActorLocation());
+			Mask->MaskType = Type;
+			Mask->UpdateVisuals(RedRabbitMaskFlipbook, GreenBirdMaskFlipbook, BlueCatMaskFlipbook);
+		}
+	}
+	
+	SetActorLocation(SpawnLocation);
 }
 
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,

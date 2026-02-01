@@ -279,7 +279,7 @@ public:
 
 	/** The type of mask currently equipped. Exposed for UI. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
-	EMaskType CurrentMaskType = EMaskType::None;
+	EEnemyType CurrentMaskType = EEnemyType::None;
 
 	/** The remaining duration of the current mask. Exposed for UI. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
@@ -441,8 +441,8 @@ protected:
 	/** Adds time to the current mask's duration, called on enemy hit. */
 	void ExtendMaskDuration();
 
-	void ApplyBuff(EMaskType MaskType);
-	void RemoveBuff(EMaskType MaskType);
+	void ApplyBuff(EEnemyType MaskType);
+	void RemoveBuff(EEnemyType MaskType);
 	
 	/** Called when the Hitbox overlaps something */
 	UFUNCTION()
@@ -512,7 +512,7 @@ public:
 	void OnChargeEnded();
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Outline")
-	void OnMaskChanged(EMaskType MaskType);
+	void OnMaskChanged(EEnemyType MaskType);
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Outline")
 	void OnGettingUp();
