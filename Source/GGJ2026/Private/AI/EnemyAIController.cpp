@@ -3,6 +3,7 @@
 
 #include "AI/EnemyAIController.h"
 
+#include "BrainComponent.h"
 #include "Navigation/CrowdFollowingComponent.h"
 
 void AEnemyAIController::BeginPlay()
@@ -20,9 +21,13 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 	Super::OnPossess(InPawn);
 }
 
-void AEnemyAIController::ActivateEnemyBT()
+void AEnemyAIController::ActivateEnemyBT(bool IsEnemyReset)
 {
-	if (AIBehaviorTree)
+	if (IsEnemyReset)
+	{
+		BrainComponent->RestartLogic();
+	}
+	else if (AIBehaviorTree)
 	{
 		RunBehaviorTree(AIBehaviorTree);
 	}
@@ -30,5 +35,5 @@ void AEnemyAIController::ActivateEnemyBT()
 
 void AEnemyAIController::DeactivateEnemyBT()
 {
-	CleanupBrainComponent();
+	BrainComponent->StopLogic("");
 }

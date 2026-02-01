@@ -24,7 +24,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	UBehaviorTree* AIBehaviorTree;
 	
-	void ActivateEnemyBT();
+	void ActivateEnemyBT(bool IsEnemyReset);
 	
 	void DeactivateEnemyBT();
 

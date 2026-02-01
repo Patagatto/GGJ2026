@@ -111,7 +111,7 @@ void AEnemyCharacter::Tick(float DeltaTime)
 void AEnemyCharacter::ActivateEnemy()
 {
 	// Reset Collisions
-	SetActorEnableCollision(true);
+	// SetActorEnableCollision(true);
 	
 	// Reset Movement
 	GetCharacterMovement()->GravityScale = 1.0f;
@@ -124,13 +124,12 @@ void AEnemyCharacter::ActivateEnemy()
 	GetSprite()->SetVisibility(true);
 	
 	// AI Logic
-	if (AIController) AIController->ActivateEnemyBT();
+	if (AIController) AIController->ActivateEnemyBT(IsReset);
+	IsReset = false;
 }
 
 void AEnemyCharacter::DeactivateEnemy()
-{	
-	GetCharacterMovement()->GravityScale = 0.0f;
-	
+{		
 	// Stop Animations
 	
 	// Make Enemy not Visible
@@ -143,6 +142,8 @@ void AEnemyCharacter::DeactivateEnemy()
 	// Stop AI Logic
 	if (AIController) AIController->DeactivateEnemyBT();
 	SetActorLocation(SpawnLocation);
+	
+	IsReset = true;
 }
 
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
