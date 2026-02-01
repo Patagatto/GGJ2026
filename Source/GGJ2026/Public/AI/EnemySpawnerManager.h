@@ -68,6 +68,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetSpawnTimer();
 	
+	UFUNCTION(BlueprintCallable)
+	void ClearSpawnTimer();
+	
 	void SpawnEnemy();
 	
 	UFUNCTION(BlueprintCallable)
