@@ -15,13 +15,14 @@ void UPauseMenuWidget::NativeConstruct()
 
 void UPauseMenuWidget::ResumeGame()
 {
+	UGameplayStatics::GetPlayerController(GetWorld(), 0)->SetShowMouseCursor(false);
 	SetVisibility(ESlateVisibility::Hidden);
 	UGameplayStatics::SetGamePaused(GetWorld(), false);
 }
 
 void UPauseMenuWidget::BackToMenu()
 {
-	PlayAnimation(FadeAnimation);
+	/* PlayAnimation(FadeAnimation);
 	// FadeAnimation->BindToAnimationFinished(this, );
-	UGameplayStatics::OpenLevel(GetWorld(), MenuLevelName);
+	UGameplayStatics::OpenLevel(GetWorld(), MenuLevelName); */
 }

@@ -25,16 +25,16 @@ protected:
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UButton* MenuButton;
-	
+		
+public:
 	// Variables		
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FName MenuLevelName;
 	
 	// Animations
-	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Transient, meta = (BindWidgetAnim))
 	UWidgetAnimation* FadeAnimation;
 	
-public:
 	virtual void NativeConstruct() override;
 	
 	UFUNCTION(BlueprintCallable)

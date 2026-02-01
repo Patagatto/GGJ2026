@@ -15,16 +15,18 @@ void UMainMenuWidget::NativeConstruct()
 	StartButton1P->OnClicked.AddDynamic(this, &UMainMenuWidget::StartGame1P);
 	StartButton2P->OnClicked.AddDynamic(this, &UMainMenuWidget::StartGame2P);
 	QuitButton->OnClicked.AddDynamic(this, &UMainMenuWidget::QuitGame);
+	
+	PlayAnimationReverse(FadeAnimation);
 }
 
 void UMainMenuWidget::StartGame1P()
 {
-	if (StartLevelName == FName("E_MainLevel"))
+	/* if (StartLevelName == FName("E_MainLevel"))
 	{
 		PlayAnimationForward(FadeAnimation);
 		// Start fading animation
-		Cast<UGGJGameInstance>(GetGameInstance())->SetPlayMode(EPlayMode::SinglePlayer);
-	}
+		UGameplayStatics::OpenLevel(GetWorld(), StartLevelName);
+	}*/ 
 }
 
 void UMainMenuWidget::StartGame2P()
