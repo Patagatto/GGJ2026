@@ -1045,6 +1045,7 @@ void AGGJCharacter::Interact()
 			return;
 		}
 		EquipMask(OverlappingMask);
+		OnMaskPickUp();
 		bInputConsumed = true; // Prevent throwing immediately after pickup
 	}
 }

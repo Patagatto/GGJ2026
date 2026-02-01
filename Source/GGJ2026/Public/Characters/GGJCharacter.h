@@ -492,6 +492,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
 	void OnMaskCaught();
 	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
+	void OnMaskPickUp();
+	
 	/** Event called when the player is knocked down (starts falling). Use this to play sound/VFX in Blueprint. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnKnockedDown();
