@@ -58,10 +58,10 @@ void UEnemySpawnerManager::InitSpawn()
 	int32 CountType2 = FMath::RoundToInt(MaxEnemies * 0.20f);
     int32 CountType3 = MaxEnemies - (CountType0 + CountType1 + CountType2);
 	
-	for (int32 i = 0; i < CountType0; i++) TypeList.Add(EEnemyType::Maskless);
-	for (int32 i = 0; i < CountType1; i++) TypeList.Add(EEnemyType::Rabbit);
-	for (int32 i = 0; i < CountType2; i++) TypeList.Add(EEnemyType::Bird);
-	for (int32 i = 0; i < CountType3; i++) TypeList.Add(EEnemyType::Cat);
+	for (int32 i = 0; i < CountType0; i++) TypeList.Add(EEnemyType::None);
+	for (int32 i = 0; i < CountType1; i++) TypeList.Add(EEnemyType::RedRabbit);
+	for (int32 i = 0; i < CountType2; i++) TypeList.Add(EEnemyType::GreenBird);
+	for (int32 i = 0; i < CountType3; i++) TypeList.Add(EEnemyType::BlueCat);
 	
 	int32 CurrentTypeIndex = 0;
 
@@ -105,10 +105,10 @@ void UEnemySpawnerManager::SetSpawnTimer()
 	int32 CountType2 = FMath::RoundToInt(MaxEnemies * 0.20f);
 	int32 CountType3 = MaxEnemies - (CountType0 + CountType1 + CountType2);
 	
-	for (int32 i = 0; i < CountType0; i++) EnemyTypeList.Add(EEnemyType::Maskless);
-	for (int32 i = 0; i < CountType1; i++) EnemyTypeList.Add(EEnemyType::Rabbit);
-	for (int32 i = 0; i < CountType2; i++) EnemyTypeList.Add(EEnemyType::Bird);
-	for (int32 i = 0; i < CountType3; i++) EnemyTypeList.Add(EEnemyType::Cat);
+	for (int32 i = 0; i < CountType0; i++) EnemyTypeList.Add(EEnemyType::None);
+	for (int32 i = 0; i < CountType1; i++) EnemyTypeList.Add(EEnemyType::RedRabbit);
+	for (int32 i = 0; i < CountType2; i++) EnemyTypeList.Add(EEnemyType::GreenBird);
+	for (int32 i = 0; i < CountType3; i++) EnemyTypeList.Add(EEnemyType::BlueCat);
 	
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AEnemySpawner::StaticClass(), EnemySpawners);
 	GetWorld()->GetTimerManager().SetTimer(SpawnTimer, this, &UEnemySpawnerManager::SpawnEnemy, SpawnRate, true);
@@ -126,14 +126,13 @@ void UEnemySpawnerManager::SpawnEnemy()
 	if (ActiveEnemies.Num() < MaxEnemies)
 	{
 		AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(GetWorld()->SpawnActor(EnemyClass));
-		Enemy->SpawnLocation = Cast<AEnemySpawner>(EnemySpawners[FMath::RandRange(0, FMath::Max(0, EnemySpawners.Num()-1))])->GetSpawnLocation();
+		Enemy->SpawnLocation = Cast<AEnemySpawner>(EnemySpawners[FMath::RandRange(0, EnemySpawners.Num()-1)])->GetSpawnLocation();
 		Enemy->SetActorLocation(Enemy->SpawnLocation);
 		if (TypeIdx == MaxEnemies)
 		{
-			
 			TypeIdx = 0;
-			Enemy->Type = EnemyTypeList[TypeIdx++];
 		}
+		Enemy->Type = EnemyTypeList[TypeIdx++];
 		Enemy->ActivateEnemy();
 		ActiveEnemies.Add(Enemy);	
 	}
@@ -146,8 +145,8 @@ void UEnemySpawnerManager::ResetEnemy(AEnemyCharacter* Enemy)
 		ActiveEnemies.Remove(Enemy);
 		ActiveEnemies.Compact();
 		ActiveEnemies.Shrink();
+		Enemy->DeactivateEnemy();
 		Enemy->Destroy();
-		/*Enemy->DeactivateEnemy();
-		EnemyPool.Enqueue(Enemy);*/
+		/*EnemyPool.Enqueue(Enemy);*/
 	}
 }

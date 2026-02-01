@@ -8,17 +8,18 @@
 #include "PaperZDCharacter.h"
 #include "Components/BoxComponent.h"
 #include "Components/HealthComponent.h"
+#include "Items/MaskPickup.h"
 #include "EnemyCharacter.generated.h"
 
 class UBoxComponent;
 
 UENUM(BlueprintType)
-enum class EEnemyType : uint8
+enum class EMaskType : uint8
 {
-	Maskless	UMETA(DisplayName = "Maskless"),
-	Rabbit		UMETA(DisplayName = "Rabbit"),
-	Bird		UMETA(DisplayName = "Bird"),
-	Cat			UMETA(DisplayName = "Cat"),
+	Maskless UMETA(DisplayName = "Maskless"),
+	Rabbit UMETA(DisplayName = "Rabbit"),
+	Bird UMETA(DisplayName = "Bird"),
+	Cat UMETA(DisplayName = "Cat"),
 };
 
 UCLASS(Abstract)
@@ -82,6 +83,23 @@ public:
 		
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FVector SpawnLocation;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UClass* PickupClass;
+	
+	// --- Mask System (Visuals) ---
+
+	/** Flipbook asset for the Red Rabbit mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* RedRabbitMaskFlipbook;
+
+	/** Flipbook asset for the Green Bird mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* GreenBirdMaskFlipbook;
+
+	/** Flipbook asset for the Blue Cat mask. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
+	class UPaperFlipbook* BlueCatMaskFlipbook;
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnEnemyDied();

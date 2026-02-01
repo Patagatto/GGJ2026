@@ -445,7 +445,8 @@ void AGGJCharacter::OnGetUpFinished()
 void AGGJCharacter::DisableInvincibility()
 {
 	bIsInvincible = false;
-	// Optional: Stop flashing visual effect here
+	// Notify Blueprint to stop flashing visuals
+	OnInvincibilityEnded();
 }
 
 void AGGJCharacter::InterruptCombatActions()
@@ -479,6 +480,9 @@ void AGGJCharacter::HandleKnockdown(AActor* DamageCauser)
 
 	// Clear any pending stun recovery, as we are now in a full knockdown sequence.
 	GetWorld()->GetTimerManager().ClearTimer(StunTimerHandle);
+
+	// Clear any pending invincibility timer from previous hits so it doesn't expire prematurely while grounded.
+	GetWorld()->GetTimerManager().ClearTimer(InvincibilityTimerHandle);
 
 	// Become invincible for the whole sequence (will be disabled in OnGetUpFinished)
 	bIsInvincible = true;
@@ -601,8 +605,14 @@ float AGGJCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	InterruptCombatActions();
 
 	CurrentHitCount++;
+	
+	// Determine if this hit causes a knockdown
+	const bool bIsKnockdown = (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown);
 
-	if (CurrentHitCount >= HitsUntilKnockdown && !bIsImmuneToKnockdown)
+	// Trigger generic hit feedback (Flash, Sound) regardless of the resulting state
+	OnPlayerHit(bIsKnockdown);
+
+	if (bIsKnockdown)
 	{
 		HandleKnockdown(DamageCauser);
 	}
@@ -857,7 +867,7 @@ void AGGJCharacter::PerformAttack()
 	ActionState = ECharacterActionState::Attacking;
 
 	// Trigger Attack Started Event (Audio/VFX)
-	const bool bHasMask = CurrentMaskType != EMaskType::None;
+	const bool bHasMask = CurrentMaskType != EEnemyType::None;
 	OnAttackStarted(false, bHasMask);
 	
 }
@@ -923,7 +933,7 @@ void AGGJCharacter::OnAttackFinished()
 {
 	// Trigger Attack Completed Event with results
 	const bool bHitEnemy = HitActors.Num() > 0;
-	const bool bHasMask = CurrentMaskType != EMaskType::None;
+	const bool bHasMask = CurrentMaskType != EEnemyType::None;
 	OnAttackCompleted(bHitEnemy, bHasMask);
 
 	ActionState = ECharacterActionState::None;
@@ -1061,7 +1071,7 @@ void AGGJCharacter::ChargeMask()
 	// This prevents ChargeMask from running if it fires before Interact in the same frame.
 	if (OverlappingMask) return;
 
-	if (CurrentMaskType == EMaskType::None) return;
+	if (CurrentMaskType == EEnemyType::None) return;
 	if (ActionState != ECharacterActionState::None && ActionState != ECharacterActionState::ChargeMask) return;
 	
 	// Set state to stop movement
@@ -1090,7 +1100,7 @@ void AGGJCharacter::LaunchMask()
 	// Reset State
 	ActionState = ECharacterActionState::None;
 
-	if (CurrentMaskType == EMaskType::None) return;
+	if (CurrentMaskType == EEnemyType::None) return;
 
 	// Spawn the mask pickup
 	FActorSpawnParameters SpawnParams;
@@ -1118,7 +1128,7 @@ void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
 	if (!MaskToEquip) return;
 
 	// If already wearing a mask, remove the old one first
-	if (CurrentMaskType != EMaskType::None)
+	if (CurrentMaskType != EEnemyType::None)
 	{
 		UnequipMask();
 	}
@@ -1139,13 +1149,13 @@ void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
 	UPaperFlipbook* FlipbookToSet = nullptr;
 	switch (CurrentMaskType)
 	{
-		case EMaskType::RedRabbit:
+		case EEnemyType::RedRabbit:
 			FlipbookToSet = RedRabbitMaskFlipbook;
 			break;
-		case EMaskType::GreenBird:
+		case EEnemyType::GreenBird:
 			FlipbookToSet = GreenBirdMaskFlipbook;
 			break;
-		case EMaskType::BlueCat:
+		case EEnemyType::BlueCat:
 			FlipbookToSet = BlueCatMaskFlipbook;
 			break;
 		default: break;
@@ -1159,13 +1169,13 @@ void AGGJCharacter::EquipMask(AMaskPickup* MaskToEquip)
 
 void AGGJCharacter::UnequipMask()
 {
-	if (CurrentMaskType == EMaskType::None) return;
+	if (CurrentMaskType == EEnemyType::None) return;
 
 	// Remove the buff
 	RemoveBuff(CurrentMaskType);
 
 	// Reset state
-	CurrentMaskType = EMaskType::None;
+	CurrentMaskType = EEnemyType::None;
 	CurrentMaskDuration = 0.0f;
 	GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
 	MaskSprite->SetFlipbook(nullptr); // Hide the mask by removing its flipbook
@@ -1177,7 +1187,7 @@ void AGGJCharacter::UnequipMask()
 
 void AGGJCharacter::UpdateMaskDuration()
 {
-	if (CurrentMaskType == EMaskType::None || ActionState == ECharacterActionState::Dead)
+	if (CurrentMaskType == EEnemyType::None || ActionState == ECharacterActionState::Dead)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(MaskDurationTimerHandle);
 		return;
@@ -1202,7 +1212,7 @@ void AGGJCharacter::UpdateMaskDuration()
 
 void AGGJCharacter::ExtendMaskDuration()
 {
-	if (CurrentMaskType != EMaskType::None)
+	if (CurrentMaskType != EEnemyType::None)
 	{
 		CurrentMaskDuration = FMath::Clamp(CurrentMaskDuration + RedRabbit_TimeToAddOnHit, 0.0f, MaxMaskDuration);
 
@@ -1213,22 +1223,22 @@ void AGGJCharacter::ExtendMaskDuration()
 	}
 }
 
-void AGGJCharacter::ApplyBuff(EMaskType MaskType)
+void AGGJCharacter::ApplyBuff(EEnemyType MaskType)
 {
 	// Placeholder for buff logic
 	switch (MaskType)
 	{
-		case EMaskType::RedRabbit:
+		case EEnemyType::RedRabbit:
 			bHasLifesteal = true;
 			bExtendsDurationOnHit = true;
 			UE_LOG(LogTemp, Warning, TEXT("Applied Red Rabbit Buff! Lifesteal and Mask Extension on hit enabled."));
 			break;
-		case EMaskType::GreenBird:
+		case EEnemyType::GreenBird:
 			bIsImmuneToKnockdown = true;
 			bHasDamageReduction = true;
 			UE_LOG(LogTemp, Warning, TEXT("Applied Green Bird Buff! Knockdown immunity and Damage Reduction enabled."));
 			break;
-		case EMaskType::BlueCat:
+		case EEnemyType::BlueCat:
 			RollCooldown = BlueCat_RollCooldown;
 			GetCharacterMovement()->MaxWalkSpeed = BlueCat_MovementSpeed;
 			UE_LOG(LogTemp, Warning, TEXT("Applied Blue Cat Buff! Roll cooldown reduced and movement speed increased."));
@@ -1237,22 +1247,22 @@ void AGGJCharacter::ApplyBuff(EMaskType MaskType)
 	}
 }
 
-void AGGJCharacter::RemoveBuff(EMaskType MaskType)
+void AGGJCharacter::RemoveBuff(EEnemyType MaskType)
 {
 	// Placeholder for removing buff logic
 	switch (MaskType)
 	{
-		case EMaskType::RedRabbit:
+		case EEnemyType::RedRabbit:
 			bHasLifesteal = false;
 			bExtendsDurationOnHit = false;
 			UE_LOG(LogTemp, Warning, TEXT("Removed Red Rabbit Buff."));
 			break;
-		case EMaskType::GreenBird:
+		case EEnemyType::GreenBird:
 			bIsImmuneToKnockdown = false;
 			bHasDamageReduction = false;
 			UE_LOG(LogTemp, Warning, TEXT("Removed Green Bird Buff."));
 			break;
-		case EMaskType::BlueCat:
+		case EEnemyType::BlueCat:
 			RollCooldown = DefaultRollCooldown;
 			GetCharacterMovement()->MaxWalkSpeed = DefaultMaxWalkSpeed;
 			UE_LOG(LogTemp, Warning, TEXT("Removed Blue Cat Buff."));

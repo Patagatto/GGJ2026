@@ -163,13 +163,13 @@ void AMaskPickup::UpdateVisuals(UPaperFlipbook* RedBook, UPaperFlipbook* GreenBo
 	UPaperFlipbook* TargetBook = nullptr;
 	switch (MaskType)
 	{
-	case EMaskType::RedRabbit:
+	case EEnemyType::RedRabbit:
 		TargetBook = RedBook;
 		break;
-	case EMaskType::GreenBird:
+	case EEnemyType::GreenBird:
 		TargetBook = GreenBook;
 		break;
-	case EMaskType::BlueCat:
+	case EEnemyType::BlueCat:
 		TargetBook = BlueBook;
 		break;
 	default: break;
