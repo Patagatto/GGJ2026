@@ -82,16 +82,6 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 void AEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-		
-	if (HitboxComponent)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[BeginPlay] HitboxComponent valid: %s"), 
-			*HitboxComponent->GetName());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[BeginPlay] HitboxComponent is nullptr!"));
-	}
 	
 	AttackManager = GetWorld()->GetSubsystem<UEnemyAttackManager>();
 	AIController = Cast<AEnemyAIController>(Controller);

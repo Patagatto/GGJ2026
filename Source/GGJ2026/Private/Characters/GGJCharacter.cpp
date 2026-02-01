@@ -107,7 +107,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	// ...except for Pawns, which it should overlap with.
 	// We change this to overlap with the Enemy's Hurtbox channel, which is ECC_GameTraceChannel4
 	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
-	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 
 	// Bind the overlap event
@@ -791,11 +791,13 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 	HitActors.Empty();
 
 	HitboxComponent->SetBoxExtent(Extent);
+	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
 void AGGJCharacter::DeactivateMeleeHitbox()
 {
+	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 

@@ -34,6 +34,15 @@ protected:
 	
 	UPROPERTY()
 	TSet<AEnemyCharacter*> ActiveEnemies;
+	
+	UPROPERTY()
+	TArray<AActor*> EnemySpawners;
+	
+	UPROPERTY()
+	TArray<EEnemyType> EnemyTypeList;
+	
+	UPROPERTY()
+	int32 TypeIdx;
 		
 	
 public:
