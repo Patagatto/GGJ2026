@@ -101,6 +101,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GGJ|Masks|Visuals", meta = (DisplayPriority = "0"))
 	class UPaperFlipbook* BlueCatMaskFlipbook;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Flow")
+	int32 ScorePoints = 10;
+	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Combat")
 	void OnEnemyDied();
 	

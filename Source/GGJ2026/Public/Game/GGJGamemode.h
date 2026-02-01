@@ -20,6 +20,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
 	int32 TotalScore;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 Player1Score;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Score")
+	int32 Player2Score;
+	
 	UFUNCTION(BlueprintCallable, Category = "Score")
 	void AddScore(int32 Amount);
 

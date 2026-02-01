@@ -2,3 +2,8 @@
 
 
 #include "Game/GGJPlayerState.h"
+
+void AGGJPlayerState::AddScore(int32 Amount)
+{
+	PlayerScore += Amount;
+}

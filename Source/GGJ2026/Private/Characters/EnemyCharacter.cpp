@@ -10,6 +10,7 @@
 #include "Characters/GGJCharacter.h"
 #include "Items/MaskPickup.h"
 #include "Components/BoxComponent.h" 
+#include "Game/GGJPlayerState.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -185,6 +186,11 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		if(HealthComp->IsActorDead())
 		{
 			OnDeath();
+			AGGJCharacter* Character = Cast<AGGJCharacter>(DamageCauser);
+			if (AGGJPlayerState* PS = Cast<AGGJPlayerState>(Character->GetPlayerState()))
+			{
+				PS->AddScore(ScorePoints);
+			}
 		}
 		else
 		{
@@ -227,6 +233,8 @@ void AEnemyCharacter::OnDeath()
 	// Deactivate Movement
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->SetMovementMode(MOVE_None);
+	
+	
 	
 	// Deactivate Collisions
 	SetActorEnableCollision(false);

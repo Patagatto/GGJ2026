@@ -13,4 +13,10 @@ UCLASS(Abstract)
 class GGJ2026_API AGGJPlayerState : public APlayerState
 {
 	GENERATED_BODY()
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 PlayerScore= 0;
+	
+	UFUNCTION(BlueprintCallable)
+	void AddScore(int32 Amount);
 };
