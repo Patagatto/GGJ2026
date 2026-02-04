@@ -121,19 +121,19 @@ void AEnemyCharacter::ActivateEnemy()
 
 void AEnemyCharacter::DeactivateEnemy()
 {		
-	// Stop Animations
-	
-	// Make Enemy not Visible
-	SetActorHiddenInGame(true);
-	GetSprite()->SetVisibility(false);
-	
-	// Health
-	HealthComp->Reset();
-	
-	// Stop AI Logic
-	if (AIController) AIController->DeactivateEnemyBT();
-	
-	IsReset = true;
+	// // Stop Animations
+	//
+	// // Make Enemy not Visible
+	// SetActorHiddenInGame(true);
+	// GetSprite()->SetVisibility(false);
+	//
+	// // Health
+	// HealthComp->Reset();
+	//
+	// // Stop AI Logic
+	// if (AIController) AIController->DeactivateEnemyBT();
+	//
+	// IsReset = true;
 	
 	if (Type != EEnemyType::None && PickupClass)
 	{
@@ -154,7 +154,7 @@ void AEnemyCharacter::DeactivateEnemy()
 		
 	}
 	
-	SetActorLocation(SpawnLocation);
+	// SetActorLocation(SpawnLocation);
 }
 
 void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -195,9 +195,12 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		{
 			OnDeath();
 			AGGJCharacter* Character = Cast<AGGJCharacter>(DamageCauser);
-			if (AGGJPlayerState* PS = Cast<AGGJPlayerState>(Character->GetPlayerState()))
+			if (Character)
 			{
-				PS->AddScore(ScorePoints);
+				if (AGGJPlayerState* PS = Cast<AGGJPlayerState>(Character->GetPlayerState()))
+				{
+					PS->AddScore(ScorePoints);
+				}
 			}
 		}
 		else

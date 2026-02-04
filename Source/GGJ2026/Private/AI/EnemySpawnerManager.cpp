@@ -153,8 +153,8 @@ void UEnemySpawnerManager::ResetEnemy(AEnemyCharacter* Enemy)
 		ActiveEnemies.Remove(Enemy);
 		ActiveEnemies.Compact();
 		ActiveEnemies.Shrink();
-		Enemy->DeactivateEnemy();
+		// Enemy->DeactivateEnemy();
 		Enemy->Destroy();
-		/*EnemyPool.Enqueue(Enemy);*/
+		// EnemyPool.Enqueue(Enemy);
 	}
 }
