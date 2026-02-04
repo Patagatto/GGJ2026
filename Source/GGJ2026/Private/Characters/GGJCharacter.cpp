@@ -42,7 +42,7 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	GetCharacterMovement()->AirControl = 0.80f;
 	GetCharacterMovement()->JumpZVelocity = 1000.f;
 	GetCharacterMovement()->GroundFriction = 3.0f;
-	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	GetCharacterMovement()->MaxWalkSpeed = 700.0f;
 	GetCharacterMovement()->MaxFlySpeed = 600.0f;
 
 	// HD-2D: Allow XY movement, disable planar constraint
