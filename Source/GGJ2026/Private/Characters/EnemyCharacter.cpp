@@ -190,6 +190,7 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const&
 	{
 		HealthComp->ApplyDamage(ActualDamage);
 		OnEnemyHit();
+		if (AttackManager) AttackManager->ReleaseToken(this);
 		
 		if(HealthComp->IsActorDead())
 		{
@@ -244,9 +245,7 @@ void AEnemyCharacter::OnDeath()
 	// Deactivate Movement
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->SetMovementMode(MOVE_None);
-	
-	
-	
+		
 	// Deactivate Collisions
 	SetActorEnableCollision(false);
 	
