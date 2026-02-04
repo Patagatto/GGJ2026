@@ -11,7 +11,7 @@
 
 AMaskPickup::AMaskPickup()
 {
-	PrimaryActorTick.bCanEverTick = true; // Enable tick for rotation and off-screen check
+	PrimaryActorTick.bCanEverTick = true;
 
 	// Root component
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
@@ -24,22 +24,20 @@ AMaskPickup::AMaskPickup()
 	// Volume to detect player interaction
 	InteractionVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("InteractionVolume"));
 	InteractionVolume->SetupAttachment(RootComponent);
-	InteractionVolume->SetCollisionProfileName(TEXT("Trigger")); // "Trigger" profile overlaps with Pawns
+	InteractionVolume->SetCollisionProfileName(TEXT("Trigger"));
 	InteractionVolume->SetBoxExtent(FVector(50.f, 50.f, 50.f));
 	InteractionVolume->OnComponentBeginOverlap.AddDynamic(this, &AMaskPickup::OnOverlapBegin);
 
 	// Damage Volume (Dedicated Hitbox)
 	DamageVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("DamageVolume"));
 	DamageVolume->SetupAttachment(RootComponent);
-	DamageVolume->SetBoxExtent(FVector(80.f, 80.f, 80.f)); // Significantly larger than interaction volume
+	DamageVolume->SetBoxExtent(FVector(80.f, 80.f, 80.f));
 	
-	// FIX: Use ECC_GameTraceChannel3 (PlayerHitbox). 
-	// Enemies are guaranteed to detect this channel as it is used for standard player attacks.
-	// Using WorldDynamic might be ignored by the Enemy's specific collision profile.
+	// Use PlayerHitbox channel to ensure detection by enemies
 	DamageVolume->SetCollisionObjectType(ECC_GameTraceChannel3);
-	DamageVolume->SetGenerateOverlapEvents(true); // CRITICAL: Must be true to fire events
+	DamageVolume->SetGenerateOverlapEvents(true);
 
-	DamageVolume->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default, enabled on throw
+	DamageVolume->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	DamageVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
 	DamageVolume->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	DamageVolume->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
@@ -54,14 +52,14 @@ AMaskPickup::AMaskPickup()
 	ProjectileMovement->MaxSpeed = 2000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = false;
 	ProjectileMovement->bShouldBounce = false;
-	ProjectileMovement->ProjectileGravityScale = 0.0f; // Fly straight
+	ProjectileMovement->ProjectileGravityScale = 0.0f;
 }
 
 void AMaskPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// FORCE COLLISION SETTINGS: Override any "dirty" Blueprint defaults
+	// Enforce collision settings to override potential Blueprint changes
 	if (DamageVolume)
 	{
 		DamageVolume->SetCollisionObjectType(ECC_GameTraceChannel3); // PlayerHitbox
@@ -79,12 +77,7 @@ void AMaskPickup::Tick(float DeltaTime)
 
 	if (bIsFlying)
 	{
-		// Rotate the sprite visually
-		// Rotate around local Pitch (Y-axis) as requested.
 		Sprite->AddLocalRotation(FRotator(RotationSpeed * DeltaTime, 0.0f, 0.0f));
-		
-		// DEBUG: Draw the hitbox to verify size and position
-		DrawDebugBox(GetWorld(), DamageVolume->GetComponentLocation(), DamageVolume->GetScaledBoxExtent(), FQuat::Identity, FColor::Red, false, -1.0f, 0, 2.0f);
 
 		// Check if off-screen to destroy
 		CheckOffScreen();
@@ -99,13 +92,12 @@ void AMaskPickup::InitializeThrow(FVector Direction, AActor* InShooter)
 	// Activate movement
 	ProjectileMovement->Velocity = Direction * 1500.0f; // Throw Speed
 	
-	// VISUAL FIX: Tilt the sprite -90 degrees (Pitch) so it lies flat parallel to the ground.
-	// This prevents the "spinning line" effect in top-down view and makes it look like a flying disc.
+	// Tilt sprite to lie flat (flying disc effect)
 	Sprite->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
 
 	// Enable the dedicated Damage Volume
 	DamageVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	DamageVolume->UpdateOverlaps(); // Force check immediately
+	DamageVolume->UpdateOverlaps();
 }
 
 void AMaskPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -113,8 +105,6 @@ void AMaskPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActo
 	if (!bIsFlying) return;
 	if (OtherActor == this || OtherActor == Shooter) return;
 
-	// InteractionVolume is now only for catching/pickup logic if needed.
-	// Damage logic moved to OnDamageOverlapBegin.
 }
 
 void AMaskPickup::OnDamageOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -130,8 +120,6 @@ void AMaskPickup::OnDamageOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 			UE_LOG(LogTemp, Error, TEXT("Mask Hit Enemy but ThrowDamage is 0! Check Blueprint defaults."));
 		}
 
-		// DEBUG: Confirm hit in log
-		UE_LOG(LogTemp, Warning, TEXT("Mask (DamageVolume) Hit Enemy: %s"), *OtherActor->GetName());
 		UGameplayStatics::ApplyDamage(OtherActor, ThrowDamage, Shooter ? Shooter->GetInstigatorController() : nullptr, this, UDamageType::StaticClass());
 	}
 }

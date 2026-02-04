@@ -34,7 +34,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UBoxComponent* InteractionVolume;
 	
-	/** Dedicated larger hitbox for dealing damage when thrown. */
+	/** Larger hitbox for dealing damage when thrown. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UBoxComponent* DamageVolume;
 
@@ -53,7 +53,7 @@ public:
 	
 	void UpdateVisuals(class UPaperFlipbook* RedBook, UPaperFlipbook* GreenBook,UPaperFlipbook* BlueBook);
 
-	/** The type of this mask, editable in the editor for each instance. */
+	/** Mask type, editable per instance. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mask")
 	EEnemyType MaskType = EEnemyType::RedRabbit;
 	

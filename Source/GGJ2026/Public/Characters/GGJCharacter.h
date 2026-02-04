@@ -12,6 +12,7 @@ class UInputMappingContext;
 class UInputAction;
 class UBoxComponent;
 class UPaperFlipbookComponent;
+class UPaperSpriteComponent;
 
 /** 
  * Defines the current high-level action state of the character.
@@ -29,6 +30,7 @@ enum class ECharacterActionState : uint8
 	KnockedDown	UMETA(DisplayName = "KnockedDown"),
 	Grounded	UMETA(DisplayName = "Grounded"),
 	GettingUp	UMETA(DisplayName = "GettingUp"),
+	Emote		UMETA(DisplayName = "Emote"),
 	Dead		UMETA(DisplayName = "Dead")
 };
 
@@ -47,20 +49,32 @@ public:
 	// COMPONENTS
 	// ========================================================================
 
-	/** Component that detects incoming damage (The Body) */
+	/** Detects incoming damage. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HurtboxComponent;
 
-	/** Component that deals damage (The Weapon) - Enabled only during attacks */
+	/** Deals damage during attacks. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* HitboxComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
 	UPaperFlipbookComponent* MaskSprite;
 
-	/** Sphere component to detect nearby interactable items like masks. */
+	/** Detects interactable items. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction", meta = (AllowPrivateAccess = "true"))
 	class USphereComponent* InteractionSphere;
+
+	// --- Directional Arrow Components ---
+
+	/** Pivot component to rotate the arrow around the character center. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visuals|Arrow", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* ArrowPivot;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visuals|Arrow", meta = (AllowPrivateAccess = "true"))
+	UPaperSpriteComponent* ArrowLineSprite;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visuals|Arrow", meta = (AllowPrivateAccess = "true"))
+	UPaperSpriteComponent* ArrowTipSprite;
 
 	// ========================================================================
 	// INPUT ASSETS
@@ -100,22 +114,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float MaxHealth = 100.0f;
 
-	/** Duration of invincibility after taking damage (seconds) */
+	/** Invincibility duration after taking damage (seconds). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float InvincibilityDuration = 1.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float InvincibilityTimeAfterKnock = 2.0f;
 
-	/** Duration of stun (inability to move) after taking damage (seconds) */
+	/** Stun duration after taking damage (seconds). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float HitStunDuration = 0.4f;
 
-	/** Strength of the knockback when hit */
+	/** Knockback force when hit. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "0"))
 	float KnockbackStrength = 600.0f;
 
-	/** Number of consecutive hits the character can take before being knocked down. */
+	/** Hits required to trigger a knockdown. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
 	int32 HitsUntilKnockdown = 3;
 
@@ -123,39 +137,39 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
 	float KnockdownPushStrength = 1200.0f;
 
-	/** Time in seconds the character stays on the ground after being knocked down. */
+	/** Duration the character stays grounded after knockdown. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
 	float GroundedTime = 2.0f;
 
-	/** Time in seconds without being hit before the knockdown hit counter resets. */
+	/** Time without hits before the knockdown counter resets. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Stats", meta = (DisplayPriority = "1"))
 	float HitCountResetTime = 2.0f;
 
 	// --- Combat (General) ---
 
-	/** Time window (in seconds) after an attack to input the next combo command before it resets */
+	/** Time window to input the next combo command. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
 	float ComboWindowTime = 0.8f;
 
-	/** Max number of attacks in the combo chain (e.g. 3 for a 3-hit combo) */
+	/** Max attacks in the combo chain. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
 	int32 MaxComboCount = 3;
 
-	/** Damage values for each step of the combo. Index 0 = Hit 1, Index 1 = Hit 2, etc. */
+	/** Damage per combo step. Index 0 = Hit 1, etc. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat", meta = (DisplayPriority = "0"))
 	TArray<float> ComboDamageValues;
 
 	// --- Combat (Lunge / Aim Assist) ---
 
-	/** Max distance to search for an enemy to lunge towards */
+	/** Max distance to search for a lunge target. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
 	float LungeRange = 400.0f;
 
-	/** Max angle (in degrees) to consider an enemy valid. 45 = 90 degree cone in front. */
+	/** Max angle (degrees) for valid targets. 45 = 90 degree cone. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
 	float LungeHalfAngle = 60.0f;
 
-	/** Distance from target to stop lunging (avoids clipping into enemy) */
+	/** Stop distance from target to avoid clipping. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Combat|Lunge", meta = (DisplayPriority = "0"))
 	float LungeStopDistance = 60.0f;
 
@@ -171,25 +185,25 @@ public:
 
 	// --- Movement ---
 
-	/** Delay in seconds before the jump force is applied. Useful for anticipation animations. */
+	/** Delay before jump force is applied (anticipation). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float JumpDelayTime = 0.1f;
 
-	/** Initial burst speed of the roll. Input can still influence movement after the burst. */
+	/** Initial burst speed of the roll. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float RollSpeed = 1200.0f;
 
-	/** Cooldown in seconds between each roll. */
+	/** Cooldown between rolls. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Movement", meta = (DisplayPriority = "0"))
 	float RollCooldown = 1.0f;
 
 	// --- Mask System ---
 
-	/** The maximum duration a mask can be worn. */
+	/** Max duration a mask can be worn. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
 	float MaxMaskDuration = 30.0f;
 
-	/** How quickly the mask's drain rate increases over time. Higher value = harder to maintain. */
+	/** Rate at which mask drain increases over time. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GGJ|Masks", meta = (DisplayPriority = "0"))
 	float DrainIncreaseRate = 0.05f;
 
@@ -233,7 +247,7 @@ public:
 	// RUNTIME STATE (VisibleAnywhere - Debugging)
 	// ========================================================================
 
-	/** The last valid direction the character was moving or inputting towards (World Space) */
+	/** Last valid movement/input direction (World Space). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	FVector LastFacingDirection;
 
@@ -247,6 +261,9 @@ public:
 	/** True if the character is moving faster than a small threshold */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
 	bool bIsMoving = false;
+	
+	/** True if the player is providing movement input this frame. */
+	bool bHasMovementInput = false;
 
 	/** Jump state check booleans for Anim Blueprint*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GGJ|Debug", meta = (DisplayPriority = "0"))
@@ -300,6 +317,7 @@ protected:
 	virtual void PawnClientRestart() override;
 	
 	void UpdateAnimationDirection();
+	void UpdateDirectionalArrow();
 	
 	// --- Damage & State Handlers ---
 
@@ -317,7 +335,7 @@ protected:
 
 	// --- Internal Logic & State ---
 
-	/** Handler for the Input Action (Internal C++ binding) */
+	/** Handles Move input. */
 	void Move(const FInputActionValue& Value);
 
 	float CurrentDamageMultiplier = 1.0f;
@@ -387,12 +405,12 @@ protected:
 	/** If true, character ignores incoming damage */
 	bool bIsInvincible = false;
 
-	/** Called when the stun duration ends to return to normal state */
+	/** Returns to normal state after stun. */
 	void OnStunFinished();
-	/** Called when the grounded duration ends to start getting up */
+	/** Starts getting up after grounded duration. */
 	void OnGroundedTimerFinished();
 
-	/** Called by a timer to reset the consecutive hit counter. */
+	/** Resets the consecutive hit counter. */
 	void ResetHitCount();
 
 	void DisableInvincibility();
@@ -403,10 +421,7 @@ protected:
 	 */
 	AActor* FindBestTarget(FVector InputDirection);
 	
-	/** 
-	 * Helper to get the current view rotation (Shared Camera or Controller).
-	 * Replaces the old dependency on FollowCamera component.
-	 */
+	/** Gets current view rotation (Shared Camera or Controller). */
 	FRotator GetCameraRotation() const;
 
 	/**
@@ -469,11 +484,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void ApplyMovementInput(FVector2D MovementVector, bool IgnoreState);
 
-	/** Call this when the player presses the Attack button. Handles Combo logic automatically. */
+	/** Handles Attack input and Combo logic. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void PerformAttack();
 
-	/** Call this via AnimNotify (PaperZD) when the attack animation ends or reaches a transition point. */
+	/** Called via AnimNotify when attack animation ends. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void OnAttackFinished();
 
@@ -533,7 +548,7 @@ public:
 
 	/** 
 	 * Activates the combat hitbox.
-	 * To be called via AnimNotify at the start of the active punch frame.
+	 * Called via AnimNotify at start of active frames.
 	 * @param SocketName The name of the socket in the Flipbook where the hitbox should spawn (e.g., "HitSocket").
 	 * @param Extent (Optional) The size of the hitbox for this specific attack.
 	 */
@@ -541,7 +556,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ActivateMeleeHitbox(FName SocketName, FVector Extent = FVector(30.f, 30.f, 30.f));
 
-	/** Deactivates the hitbox. To be called via AnimNotify at the end of the strike. */
+	/** Deactivates the hitbox. Called via AnimNotify. */
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void DeactivateMeleeHitbox();
 	

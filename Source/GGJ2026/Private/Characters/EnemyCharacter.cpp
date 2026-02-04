@@ -36,6 +36,7 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	// to face the camera. PaperZD handles the visual direction via animation.
 	GetSprite()->SetUsingAbsoluteRotation(true);
 	GetSprite()->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+	GetSprite()->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.3f));
 
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
 		
@@ -305,11 +306,11 @@ void AEnemyCharacter::UpdateAnimationDirection()
 	// DeltaYaw is approx -90 for left (flip), +90 for right (normal).
 	if (DeltaYaw < -5.0f && DeltaYaw > -175.0f)
 	{
-		GetSprite()->SetRelativeScale3D(FVector(-1.0f, 1.0f, 1.0f));
+		GetSprite()->SetRelativeScale3D(FVector(-1.0f, 1.0f, 1.3f));
 	}
 	else
 	{
-		GetSprite()->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+		GetSprite()->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.3f));
 	}
 }
 
