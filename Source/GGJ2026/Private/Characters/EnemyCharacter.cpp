@@ -46,23 +46,13 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
-	HurtboxComponent->SetGenerateOverlapEvents(true);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
+	HurtboxComponent->SetGenerateOverlapEvents(false);
 	HurtboxComponent->ComponentTags.Add(TEXT("Hurtbox"));
-	HurtboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnBoxBeginOverlap);
 	
 	// Hitbox: Deals damage4
 	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
-		
-	if (HitboxComponent)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Constructor] HitboxComponent created: %s"), 
-			*HitboxComponent->GetName());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Constructor] FAILED to create HitboxComponent!"));
-	}
-	
+			
 	// IMPORTANT: Attach to Sprite, not Root.
 	// This ensures the hitbox moves correctly when the sprite is flipped (Scale X = -1).
 	HitboxComponent->SetupAttachment(GetSprite()); 
@@ -72,7 +62,8 @@ AEnemyCharacter::AEnemyCharacter(const FObjectInitializer& ObjectInitializer)
 	// It should ignore everything by default...
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
-	HitboxComponent->SetGenerateOverlapEvents(true);
+	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel5, ECR_Overlap);
+	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->ComponentTags.Add(TEXT("Hitbox"));
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
 	
@@ -98,6 +89,30 @@ void AEnemyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UpdateAnimationDirection();
+	
+	if (GetSprite()->DoesSocketExist("Hitbox"))
+	{
+		// const FVector SocketLoc = GetSprite()->GetSocketLocation("Hitbox");
+		// const FVector HitboxLoc = HitboxComponent->GetComponentLocation();
+
+		// UE_LOG(LogTemp, Warning, TEXT("SocketLoc: %s | HitboxLoc: %s"),
+		// 	*SocketLoc.ToString(),
+		// 	*HitboxLoc.ToString());
+
+		// HitboxComponent->SetWorldLocation(SocketLoc);
+		HitboxComponent->UpdateOverlaps();
+		
+		// TArray<UPrimitiveComponent*> OverlappingComps;
+		// HitboxComponent->GetOverlappingComponents(OverlappingComps);
+		// UE_LOG(LogTemp, Warning, TEXT("Hitbox overlapping %d components"), OverlappingComps.Num());
+		// for (auto* Comp : OverlappingComps)
+		// {
+		// 	UE_LOG(LogTemp, Warning, TEXT("  - %s (Owner: %s)"), 
+		// 		*Comp->GetName(),
+		// 		*Comp->GetOwner()->GetName());
+		// }
+	}
+
 }
 
 void AEnemyCharacter::ActivateEnemy()
@@ -163,8 +178,8 @@ void AEnemyCharacter::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 {
 	// FIX: Ignore the Player's Hitbox (Weapon) to prevent taking contact damage when attacking the enemy.
 	// ECC_GameTraceChannel3 corresponds to the PlayerHitbox channel.
-	if (OtherComp && OtherComp->GetCollisionObjectType() == ECC_GameTraceChannel3) return;
-
+	if (OtherComp && OtherComp->GetCollisionObjectType() != ECC_GameTraceChannel6) return;
+	
 	if (OtherActor && OtherActor->IsA<AGGJCharacter>())
 	{
 		
@@ -230,12 +245,12 @@ bool AEnemyCharacter::CanAttack()
 
 void AEnemyCharacter::AttackFinished()
 {
-	if (AttackManager)
-	{
-		IsAttacking = false;
-		AttackManager->ReleaseToken(this);
-		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
+	if (AttackManager) AttackManager->ReleaseToken(this);
+	
+	IsAttacking = false;
+	HitboxComponent->SetGenerateOverlapEvents(false);
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitboxComponent->UpdateOverlaps();
 }
 
 void AEnemyCharacter::OnDeath()
@@ -266,7 +281,9 @@ void AEnemyCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 	{
 		HitboxComponent->AttachToComponent(GetSprite(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 		HitboxComponent->SetBoxExtent(Extent);
+		HitboxComponent->SetGenerateOverlapEvents(true);
 		HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		HitboxComponent->UpdateOverlaps();
 		
 		// Reset hit tracker for this new swing
 		bHasHitPlayer = false;

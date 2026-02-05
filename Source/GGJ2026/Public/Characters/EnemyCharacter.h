@@ -13,15 +13,6 @@
 
 class UBoxComponent;
 
-UENUM(BlueprintType)
-enum class EMaskType : uint8
-{
-	Maskless UMETA(DisplayName = "Maskless"),
-	Rabbit UMETA(DisplayName = "Rabbit"),
-	Bird UMETA(DisplayName = "Bird"),
-	Cat UMETA(DisplayName = "Cat"),
-};
-
 UCLASS(Abstract)
 class GGJ2026_API AEnemyCharacter : public APaperZDCharacter
 {

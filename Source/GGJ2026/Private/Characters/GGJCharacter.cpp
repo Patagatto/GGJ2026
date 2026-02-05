@@ -77,16 +77,14 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	HurtboxComponent->SetupAttachment(GetSprite()); // Attach to sprite so it follows visual representation
 	HurtboxComponent->SetBoxExtent(FVector(20.f, 10.f, 40.f)); // Made it thinner
 	// Set the hurtbox to be of the "Pawn" object type
-	HurtboxComponent->SetCollisionObjectType(ECC_Pawn);
+	HurtboxComponent->SetCollisionObjectType(ECC_GameTraceChannel6);
 	// It should generate overlap events but not block anything by default
 	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap);
-	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
-	HurtboxComponent->SetGenerateOverlapEvents(true);
-
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel5, ECR_Overlap);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Overlap);
+	HurtboxComponent->SetGenerateOverlapEvents(false);
+	
 	// Mask Sprite Setup
 	MaskSprite = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("MaskSprite"));
 	MaskSprite->SetupAttachment(GetSprite());
@@ -101,9 +99,9 @@ AGGJCharacter::AGGJCharacter(const FObjectInitializer& ObjectInitializer)
 	HitboxComponent->SetCollisionObjectType(ECC_GameTraceChannel3); // PlayerHitbox
 	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap); // EnemyHurtbox
+	HitboxComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Overlap); // EnemyHurtbox
 	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Disabled by default! Enabled by Animation.
-
 	
 	// Bind the overlap event
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &AGGJCharacter::OnHitboxOverlap);
@@ -217,6 +215,11 @@ void AGGJCharacter::Tick(float DeltaSeconds)
 	
 	// Reset input flag for the next frame
 	bHasMovementInput = false;
+	
+	if (GetSprite()->DoesSocketExist("Hitbox"))
+	{
+		HitboxComponent->UpdateOverlaps();
+	}
 }
 
 void AGGJCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -381,6 +384,7 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == this) return;
+	
 	if (HitActors.Contains(OtherActor)) return;
 
 	// Check for Hurtbox tag
@@ -795,12 +799,14 @@ void AGGJCharacter::ActivateMeleeHitbox(FName SocketName, FVector Extent)
 	HitboxComponent->SetBoxExtent(Extent);
 	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	HitboxComponent->UpdateOverlaps();
 }
 
 void AGGJCharacter::DeactivateMeleeHitbox()
 {
 	HitboxComponent->SetGenerateOverlapEvents(false);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitboxComponent->UpdateOverlaps();
 }
 
 void AGGJCharacter::ActivateMask(FName SocketName)
