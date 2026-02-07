@@ -178,6 +178,7 @@ void AGGJCharacter::BeginPlay()
 	bJumpStopPending = false;
 	bPendingCombo = false;
 	bIsRollOnCooldown = false;
+	bIsInvincible = false; 
 	bExtendsDurationOnHit = false;
 	bHasDamageReduction = false;
 	bIsImmuneToKnockdown = false;
@@ -384,6 +385,9 @@ void AGGJCharacter::ApplyMovementInput(FVector2D MovementVector, bool IgnoreStat
 void AGGJCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == this) return;
+
+	// Only deal damage if we are actually in the Attacking state.
+	if (ActionState != ECharacterActionState::Attacking) return;
 	
 	if (HitActors.Contains(OtherActor)) return;
 
@@ -550,6 +554,8 @@ void AGGJCharacter::HandleHurt(AActor* DamageCauser)
 void AGGJCharacter::HandleDeath()
 {
 	InterruptCombatActions();
+	
+	bIsInvincible = false;
 
 	ActionState = ECharacterActionState::Dead;
 	
@@ -916,6 +922,9 @@ void AGGJCharacter::OnAttackFinished()
 	const bool bHitEnemy = HitActors.Num() > 0;
 	const bool bHasMask = CurrentMaskType != EEnemyType::None;
 	OnAttackCompleted(bHitEnemy, bHasMask);
+
+	// Ensure hitbox is disabled even if the AnimNotify was missed
+	DeactivateMeleeHitbox();
 
 	ActionState = ECharacterActionState::None;
 
