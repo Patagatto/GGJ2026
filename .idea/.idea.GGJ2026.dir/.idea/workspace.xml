@@ -9,10 +9,13 @@
   <component name="ChangeListManager">
     <list default="true" id="369cc28a-ab15-4a8d-8054-d7afb6b2d486" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.GGJ2026.dir/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.GGJ2026.dir/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Content/Assets/Animations/Characters/Player/AnimSequences/AS_PlayerRed_Third.uasset" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Assets/Animations/Characters/Player/AnimSequences/AS_PlayerRed_Third.uasset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Assets/UI/Images/T_Button_A.uasset" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Assets/UI/Images/T_Button_B.uasset" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Assets/UI/Images/T_Button_X.uasset" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Assets/UI/Images/T_Button_Y.uasset" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Content/Core/Characters/BP_GGJCharacter.uasset" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Core/Characters/BP_GGJCharacter.uasset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Content/Core/UI/Widgets/WBP_DialogueBox.uasset" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Core/UI/Widgets/WBP_DialogueBox.uasset" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Content/Maps/E_MainLevel.umap" beforeDir="false" afterPath="$PROJECT_DIR$/Content/Maps/E_MainLevel.umap" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Source/GGJ2026/Private/Characters/GGJCharacter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Source/GGJ2026/Private/Characters/GGJCharacter.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,18 +32,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "Babbeo11"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Babbeo11&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/Patagatto/GGJ2026.git",
-    "accountId": "e1ede3f3-8b7a-442a-aac2-333e184b0609"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Patagatto/GGJ2026.git&quot;,
+    &quot;accountId&quot;: &quot;e1ede3f3-8b7a-442a-aac2-333e184b0609&quot;
   }
-}]]></component>
+}</component>
   <component name="HighlightingSettingsPerFile">
     <setting file="cidr-memory-view://0" root0="FORCE_HIGHLIGHTING" />
     <setting file="cidr-memory-view://1" root0="FORCE_HIGHLIGHTING" />
@@ -59,19 +62,19 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "Uproject.GGJ2026.executor": "Run",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Uproject.GGJ2026.executor&quot;: &quot;Run&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecapSpentCounter">
     <option name="endsOfQuotaMs" value="1772575220616" />
     <option name="spentUsd" value="0.0973065" />
@@ -90,10 +93,10 @@
         <option name="CONFIGURATION" value="DebugGame Editor" />
         <option name="PLATFORM" value="Win64" />
         <option name="CURRENT_LAUNCH_PROFILE" value="Local" />
-        <option name="EXECUTABLE_PATH" value="D:/EpicGames/UE_5.7/Engine/Binaries/Win64/UnrealEditor-Win64-DebugGame.exe" />
-        <option name="MANDATORY_PROGRAM_PARAMETERS" value=" &quot;C:\Users\nicol\Documents\Unreal Projects\GGJ2026\GGJ2026.uproject&quot;" />
+        <option name="EXECUTABLE_PATH" value="$PROJECT_DIR$/../../../../../Program Files/Epic Games/UE_5.7/Engine/Binaries/Win64/UnrealEditor-Win64-DebugGame.exe" />
+        <option name="MANDATORY_PROGRAM_PARAMETERS" value=" &quot;C:\Users\Umberto\Studio\GitRepos\GGJ2026\GGJ2026.uproject&quot;" />
         <option name="CUSTOM_PROGRAM_PARAMETERS" value="" />
-        <option name="WORKING_DIRECTORY" value="D:\EpicGames\UE_5.7" />
+        <option name="WORKING_DIRECTORY" value="C:\Program Files\Epic Games\UE_5.7" />
         <option name="PASS_PARENT_ENVS" value="1" />
         <option name="USE_EXTERNAL_CONSOLE" value="1" />
         <option name="TERMINAL_INTERACTION_BEHAVIOR" value="FORCE_CONSOLE" />
@@ -106,7 +109,7 @@
         <option name="EXECUTABLE_PATH" value="$PROJECT_DIR$/Binaries/Win64/GGJ2026-Win64-DebugGame.exe" />
         <option name="MANDATORY_PROGRAM_PARAMETERS" value="" />
         <option name="CUSTOM_PROGRAM_PARAMETERS" value="" />
-        <option name="WORKING_DIRECTORY" value="D:\EpicGames\UE_5.7" />
+        <option name="WORKING_DIRECTORY" value="C:\Program Files\Epic Games\UE_5.7" />
         <option name="PASS_PARENT_ENVS" value="1" />
         <option name="USE_EXTERNAL_CONSOLE" value="1" />
         <option name="TERMINAL_INTERACTION_BEHAVIOR" value="FORCE_CONSOLE" />
@@ -116,10 +119,10 @@
         <option name="CONFIGURATION" value="Development Editor" />
         <option name="PLATFORM" value="Win64" />
         <option name="CURRENT_LAUNCH_PROFILE" value="Local" />
-        <option name="EXECUTABLE_PATH" value="D:/EpicGames/UE_5.7/Engine/Binaries/Win64/UnrealEditor.exe" />
-        <option name="MANDATORY_PROGRAM_PARAMETERS" value=" &quot;C:\Users\nicol\Documents\Unreal Projects\GGJ2026\GGJ2026.uproject&quot;" />
+        <option name="EXECUTABLE_PATH" value="$PROJECT_DIR$/../../../../../Program Files/Epic Games/UE_5.7/Engine/Binaries/Win64/UnrealEditor.exe" />
+        <option name="MANDATORY_PROGRAM_PARAMETERS" value=" &quot;C:\Users\Umberto\Studio\GitRepos\GGJ2026\GGJ2026.uproject&quot;" />
         <option name="CUSTOM_PROGRAM_PARAMETERS" value="" />
-        <option name="WORKING_DIRECTORY" value="D:\EpicGames\UE_5.7" />
+        <option name="WORKING_DIRECTORY" value="C:\Program Files\Epic Games\UE_5.7" />
         <option name="PASS_PARENT_ENVS" value="1" />
         <option name="USE_EXTERNAL_CONSOLE" value="1" />
         <option name="TERMINAL_INTERACTION_BEHAVIOR" value="FORCE_CONSOLE" />
@@ -132,7 +135,7 @@
         <option name="EXECUTABLE_PATH" value="$PROJECT_DIR$/Binaries/Win64/GGJ2026.exe" />
         <option name="MANDATORY_PROGRAM_PARAMETERS" value="" />
         <option name="CUSTOM_PROGRAM_PARAMETERS" value="" />
-        <option name="WORKING_DIRECTORY" value="D:\EpicGames\UE_5.7" />
+        <option name="WORKING_DIRECTORY" value="C:\Program Files\Epic Games\UE_5.7" />
         <option name="PASS_PARENT_ENVS" value="1" />
         <option name="USE_EXTERNAL_CONSOLE" value="1" />
         <option name="TERMINAL_INTERACTION_BEHAVIOR" value="FORCE_CONSOLE" />
@@ -145,7 +148,7 @@
         <option name="EXECUTABLE_PATH" value="$PROJECT_DIR$/Binaries/Win64/GGJ2026-Win64-Shipping.exe" />
         <option name="MANDATORY_PROGRAM_PARAMETERS" value="" />
         <option name="CUSTOM_PROGRAM_PARAMETERS" value="" />
-        <option name="WORKING_DIRECTORY" value="D:\EpicGames\UE_5.7" />
+        <option name="WORKING_DIRECTORY" value="C:\Program Files\Epic Games\UE_5.7" />
         <option name="PASS_PARENT_ENVS" value="1" />
         <option name="USE_EXTERNAL_CONSOLE" value="1" />
         <option name="TERMINAL_INTERACTION_BEHAVIOR" value="FORCE_CONSOLE" />
@@ -168,6 +171,7 @@
       <updated>1770306302736</updated>
       <workItem from="1770306338711" duration="11167000" />
       <workItem from="1770458188781" duration="2632000" />
+      <workItem from="1771255025543" duration="1186000" />
     </task>
     <servers />
   </component>
